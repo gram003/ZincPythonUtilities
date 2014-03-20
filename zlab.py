@@ -41,7 +41,7 @@ def read_txtnode(filename):
 def read_txtelem(filename):
     return mesh.read_txtelem(filename)
 
-def linear_mesh(node_coordinate_set, element_set):
+def linear_mesh(node_coordinate_set, element_set, **kwargs):
     '''
     Create linear finite elements given node and element lists
     '''
@@ -56,11 +56,12 @@ def linear_mesh(node_coordinate_set, element_set):
         _init()
         global _ctxt
         mesh.linear_mesh(_ctxt, node_coordinate_set, element_set)
-        mesh.createGraphics(_ctxt)
+        mesh.createNodeGraphics(_ctxt, **kwargs)
+        mesh.createSurfaceGraphics(_ctxt, **kwargs)
 
     _messageQueue.put(_linear_mesh)
     
-def data_points(coordinate_set):
+def data_points(coordinate_set, **kwargs):
     
     if len(coordinate_set) == 0:
         raise RuntimeError("Empty coordinate list") 
@@ -68,11 +69,11 @@ def data_points(coordinate_set):
     def _data_points():
         _init()        
         mesh.data_points(_ctxt, coordinate_set)
-        mesh.createGraphics(_ctxt)
+        mesh.createDatapointGraphics(_ctxt, **kwargs)
     
     _messageQueue.put(_data_points)
 
-def nodes(coordinate_set):
+def nodes(coordinate_set, **kwargs):
     
     if len(coordinate_set) == 0:
         raise RuntimeError("Empty coordinate list") 
@@ -80,16 +81,18 @@ def nodes(coordinate_set):
     def _nodes():
         _init()        
         mesh.nodes(_ctxt, coordinate_set)
-        mesh.createGraphics(_ctxt)
+        mesh.createNodeGraphics(_ctxt, **kwargs)
     
     _messageQueue.put(_nodes)
 
-def createGraphics():
+def createGraphics(**kwargs):
 
     def _createGraphics():
         _init()        
         global _ctxt
-        mesh.createGraphics(_ctxt)
+        mesh.createNodeGraphics(_ctxt, **kwargs)
+        mesh.createDatapointGraphics(_ctxt, **kwargs)
+        mesh.createSurfaceGraphics(_ctxt, **kwargs)
         
     _messageQueue.put(_createGraphics)
     
@@ -125,7 +128,8 @@ def show():
             
             def postGLInitialise(self):
                 # It seems to work OK if this isn't called.               
-                self.ui._zincWidget.viewAll()
+                #self.ui._zincWidget.viewAll()
+                _messageQueue.put(self.ui._zincWidget.viewAll)
     
         def poll():
             global _messageQueue

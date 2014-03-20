@@ -4,6 +4,7 @@ from opencmiss.zinc.field import Field
 from opencmiss.zinc.glyph import Glyph
 from opencmiss.zinc.element import Element, Elementbasis
 
+_defaultGraphicsCreated = False
 
 def _coordinate_field(ctxt, coordinate_set, nodeset_type, field_name):
     '''
@@ -51,6 +52,8 @@ def _coordinate_field(ctxt, coordinate_set, nodeset_type, field_name):
         # Pass in floats as an array
         finite_element_field.assignReal(field_cache, point)
         
+    finite_element_field.setTypeCoordinate(True)
+    
     return nodeset
 
 # map shape type to mesh order
@@ -101,7 +104,8 @@ def linear_mesh(ctxt, node_coordinate_set, element_set):
     finite_element_field = field_module.findFieldByName('coordinates')
     element_template.defineFieldSimpleNodal(finite_element_field,
                                             -1,
-                                            linear_basis, local_indices)
+                                            linear_basis,
+                                            local_indices)
 
     # create the elements
     for node_indices in element_set:        
@@ -115,34 +119,112 @@ def linear_mesh(ctxt, node_coordinate_set, element_set):
     field_module.defineAllFaces() 
     field_module.endChange()
     
-def data_points(ctxt, coordinate_set):
+def data_points(ctxt, coordinate_set, fieldname='data_coordinates'):
     
     if len(coordinate_set) == 0:
         raise RuntimeError("Empty datapoint coordinate list") 
                 
-    nodeset = _coordinate_field(ctxt, coordinate_set, 'datapoints', 'data_coordinates')
+    nodeset = _coordinate_field(ctxt, coordinate_set, 'datapoints', fieldname)
     
     return nodeset
 
-def nodes(ctxt, coordinate_set):
+def nodes(ctxt, coordinate_set, fieldname='coordinates'):
     if len(coordinate_set) == 0:
         raise RuntimeError("Empty node coordinate list") 
 
-    nodeset = _coordinate_field(ctxt, coordinate_set, 'nodes', 'coordinates')
+    nodeset = _coordinate_field(ctxt, coordinate_set, 'nodes', fieldname)
     
     return nodeset
 
-def createGraphics(ctxt):
+def _createDefaultGraphics(ctxt):
+    global _defaultGraphicsCreated
+    if not _defaultGraphicsCreated:
+        glyph_module = ctxt.getGlyphmodule()
+        glyph_module.defineStandardGlyphs()
+        _defaultGraphicsCreated = True
+
+def createDatapointGraphics(ctxt, **kwargs):
     
-    # FIXME: the graphics that are created need to be controlled by arguments
-    # probably kwargs would be suitable for this
-    
+    _createDefaultGraphics(ctxt)
+
+    default_region = ctxt.getDefaultRegion()
+
     materials_module = ctxt.getMaterialmodule()
     materials_module.defineStandardMaterials()
     green = materials_module.findMaterialByName('green')
 
-    glyph_module = ctxt.getGlyphmodule()
-    glyph_module.defineStandardGlyphs()
+    field_module = default_region.getFieldmodule()
+
+    scene = default_region.getScene()
+
+    scene.beginChange()
+                
+    data_coordinates = field_module.findFieldByName('data_coordinates')
+    diamond = scene.createGraphicsPoints()
+    diamond.setCoordinateField(data_coordinates)
+    diamond.setFieldDomainType(Field.DOMAIN_TYPE_DATAPOINTS)
+    att = diamond.getGraphicspointattributes()
+    att.setGlyphShapeType(Glyph.SHAPE_TYPE_DIAMOND)
+    diamond.setMaterial(green)
+    if 'datapoint_size' in kwargs:
+        att.setBaseSize(kwargs['datapoint_size'])
+    else:
+        att.setBaseSize([1])
+    if 'datapoint_label' in kwargs and kwargs['datapoint_label']:
+        cmiss_number_field = field_module.findFieldByName('cmiss_number')
+        print "cmiss_number_field.isValid()", cmiss_number_field.isValid()
+        att.setLabelField(cmiss_number_field)
+      
+    scene.endChange()
+
+def createNodeGraphics(ctxt, **kwargs):
+
+    _createDefaultGraphics(ctxt)
+
+    default_region = ctxt.getDefaultRegion()
+    # Get the scene for the default region to create the visualisation in.
+    scene = default_region.getScene()
+    
+    # We use the beginChange and endChange to wrap any immediate changes and will
+    # streamline the rendering of the scene.
+    scene.beginChange()
+            
+    field_module = default_region.getFieldmodule()
+    finite_element_field = field_module.findFieldByName('coordinates')
+
+#     # Diagnositics    
+#     fm = field_module
+#     sNodes = fm.findNodesetByName('nodes')
+#     print "sNodes.getSize()", sNodes.getSize()
+     
+    sphere = scene.createGraphicsPoints()
+    sphere.setCoordinateField(finite_element_field)
+    sphere.setFieldDomainType(Field.DOMAIN_TYPE_NODES)
+    att = sphere.getGraphicspointattributes()
+    att.setGlyphShapeType(Glyph.SHAPE_TYPE_SPHERE)
+    if 'node_size' in kwargs:
+        att.setBaseSize(kwargs['node_size'])
+    else:
+        att.setBaseSize([1])
+    if 'node_label' in kwargs and kwargs['node_label']:
+        cmiss_number_field = field_module.findFieldByName('cmiss_number')
+        
+        print "cmiss_number_field.isValid()", cmiss_number_field.isValid()
+        att.setLabelField(cmiss_number_field)
+      
+    scene.endChange()
+
+def createSurfaceGraphics(ctxt, **kwargs):
+    '''
+    Create graphics for the default region.
+    Keyword arguments that are currently supported:
+    node_size
+    node_label
+    datapoint_size
+    datapoint_label
+    '''
+
+    _createDefaultGraphics(ctxt)
 
     default_region = ctxt.getDefaultRegion()
     # Get the scene for the default region to create the visualisation in.
@@ -155,39 +237,15 @@ def createGraphics(ctxt):
     # createSurfaceGraphic graphic start
     field_module = default_region.getFieldmodule()
     finite_element_field = field_module.findFieldByName('coordinates')
- 
+     
     # Create line graphics
     lines = scene.createGraphicsLines()
     lines.setCoordinateField(finite_element_field)
      
-    # Create a surface graphic and set it's coordinate field to the finite element coordinate field
-    # named coordinates
     surface = scene.createGraphicsSurfaces()
     surface.setCoordinateField(finite_element_field)
     surface.setName("surface")
      
-    # Create point graphics and set the coordinate field to the finite element coordinate field
-    # named coordinates
-    sphere = scene.createGraphicsPoints()
-    sphere.setCoordinateField(finite_element_field)
-    sphere.setFieldDomainType(Field.DOMAIN_TYPE_NODES)
-    att = sphere.getGraphicspointattributes()
-    att.setGlyphShapeType(Glyph.SHAPE_TYPE_SPHERE)
-    att.setBaseSize([1])
-
-    data_coordinates = field_module.findFieldByName('data_coordinates')
-    diamond = scene.createGraphicsPoints()
-    diamond.setCoordinateField(data_coordinates)
-    diamond.setFieldDomainType(Field.DOMAIN_TYPE_DATAPOINTS)
-    att = diamond.getGraphicspointattributes()
-    att.setGlyphShapeType(Glyph.SHAPE_TYPE_DIAMOND)
-    diamond.setMaterial(green)
-    att.setBaseSize([1.5]) # FIXME: need to be able to set this from the API
- 
-    #cmiss_number_field = field_module.findFieldByName('cmiss_number')
-    #att.setLabelField(cmiss_number_field)
-      
-    # Let the scene render the scene.
     scene.endChange()
     
     
