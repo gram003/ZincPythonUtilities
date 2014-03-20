@@ -480,8 +480,7 @@ class ZincWidget(QtOpenGL.QGLWidget):
                         else:
                             group.addElement(elem)
 
-            self.updateGL()
-            
+
             root_region.endHierarchicalChange()
             self._selectionMode = _SelectionMode.NONE
         else:
