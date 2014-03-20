@@ -10,7 +10,7 @@ import Queue
 
 from opencmiss.zinc.context import Context
 
-import zinc_util.mesh as mesh
+import tools.mesh as mesh
 
 try:
     from PySide import QtGui, QtCore
@@ -40,34 +40,63 @@ def read_txtnode(filename):
 
 def read_txtelem(filename):
     return mesh.read_txtelem(filename)
-    
+
 def linear_mesh(node_coordinate_set, element_set):
     '''
     Create linear finite elements given node and element lists
     '''
-    _init()
-    global _ctxt
-    mesh.linear_mesh(_ctxt, node_coordinate_set, element_set)
+    
+    if len(node_coordinate_set) == 0:
+        raise RuntimeError("Empty node coordinate list") 
+
+    if len(element_set) == 0:
+        raise RuntimeError("Empty element list") 
+
+    def _linear_mesh():
+        _init()
+        global _ctxt
+        mesh.linear_mesh(_ctxt, node_coordinate_set, element_set)
+        mesh.createGraphics(_ctxt)
+
+    _messageQueue.put(_linear_mesh)
     
 def data_points(coordinate_set):
     
     if len(coordinate_set) == 0:
-        raise RuntimeError("Empty datapoint list") 
+        raise RuntimeError("Empty coordinate list") 
     
-    _init()
+    def _data_points():
+        _init()        
+        mesh.data_points(_ctxt, coordinate_set)
+        mesh.createGraphics(_ctxt)
     
-    mesh.data_points(_ctxt, coordinate_set)
+    _messageQueue.put(_data_points)
+
+def nodes(coordinate_set):
+    
+    if len(coordinate_set) == 0:
+        raise RuntimeError("Empty coordinate list") 
+    
+    def _nodes():
+        _init()        
+        mesh.nodes(_ctxt, coordinate_set)
+        mesh.createGraphics(_ctxt)
+    
+    _messageQueue.put(_nodes)
 
 def createGraphics():
-    
-    _init()
-    
-    global _ctxt
-    createGraphics(_ctxt)
+
+    def _createGraphics():
+        _init()        
+        global _ctxt
+        mesh.createGraphics(_ctxt)
+        
+    _messageQueue.put(_createGraphics)
     
 def show():
     # Show the Zinc window in a separate thread.
-    # FIXME: everything that uses the context needs to be called in this thread
+    # Everything that uses the context needs to be called in this thread
+    # FIXME: this doesn't work properly for multiple show/hide calls
     
     def thread_func():
     
@@ -115,6 +144,7 @@ def show():
         if _window is None:
             _window = ZlabDlg()
         _window.show()
+        _window.ui._zincWidget.viewAll()
         
         timer = QtCore.QTimer()
         timer.setInterval(100)
@@ -122,26 +152,32 @@ def show():
         timer.start(100)
         
         _app.exec_()
-    
-    zinc_thread = threading.Thread(target=thread_func)
-    zinc_thread.start()
+        _window = None
+        # end threadfunc
+
+    global _window
+    if _window is None:
+        zinc_thread = threading.Thread(target=thread_func)
+        zinc_thread.start()
 
     
 def hide():
-    def _hideWindow():
-        global _window
-        _window.hide()
-    
-    _messageQueue.put(_hideWindow)
-
+    global _window
+    if not _window is None: 
+        def _hideWindow():
+            _window.hide()
+        _messageQueue.put(_hideWindow)
+    else:
+        raise RuntimeError("Can't hide, window has not been shown")
 
 def close():
-    def _closeWindow():
-        global _window
-        _window.close()
-    
-    _messageQueue.put(_closeWindow)
-    
+    global _window
+    if not _window is None: 
+        def _closeWindow():
+            _window.hide()
+        _messageQueue.put(_closeWindow)
+    else:
+        raise RuntimeError("Can't close, window has not been shown")
 
 def exit_():
     def _exitApp():
