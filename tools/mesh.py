@@ -128,12 +128,23 @@ def linear_mesh(ctxt, node_coordinate_set, element_set, **kwargs):
                                             local_indices)
 
     # create the elements
-    for node_indices in element_set:        
-        for i, node_idx in enumerate(node_indices):
-            node = nodeset.findNodeByIdentifier(node_idx)
-            element_template.setNode(i + 1, node)
+    element_id = 1
+    for node_indices in element_set:
+        def _populateTemplate():
+            for i, node_idx in enumerate(node_indices):
+                node = nodeset.findNodeByIdentifier(node_idx)
+                element_template.setNode(i + 1, node)
             
-        mesh.defineElement(-1, element_template)
+        if not merge:
+            _populateTemplate()
+            mesh.defineElement(-1, element_template)
+        else:
+            element = mesh.findElementByIdentifier(element_id)
+            _populateTemplate()
+            
+            element.merge(element_template)
+            element_id += 1
+            
 
     finite_element_field.setTypeCoordinate(True) 
     field_module.defineAllFaces() 
