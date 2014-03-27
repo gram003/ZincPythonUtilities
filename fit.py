@@ -192,8 +192,10 @@ class Model(object):
 
     def _defineStoredFoundLocation(self, region, gsData, gmFaces):
         '''
-        Create a field which dynamically finds the nearest location to the scaled_data_coordinates on the 1-D mesh and 
-        define a field for storing these locations so they are not recalculated during optimisation
+        Create a field which dynamically finds the nearest location to the
+        scaled_data_coordinates on the 1-D mesh and define a field for
+        storing these locations so they are not recalculated during
+        optimisation.
         '''
         print funcname()
         fm = region.getFieldmodule()
