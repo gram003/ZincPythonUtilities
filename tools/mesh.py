@@ -11,7 +11,7 @@ _defaultGraphicsCreated = False
 def funcname():
     return sys._getframe(1).f_code.co_name
 
-def _coordinate_field(ctxt, coordinate_set, nodeset_type, coordinate_field_name):
+def _coordinate_field(ctxt, coordinate_set, nodeset_type, coordinate_field_name, merge=False):
     '''
     Create a coordinate field given a coordinate list.
     Returns the nodeset
@@ -44,22 +44,26 @@ def _coordinate_field(ctxt, coordinate_set, nodeset_type, coordinate_field_name)
     node_template.defineField(finite_element_field)
     field_cache = field_module.createFieldcache()
 
-    node_identifiers = []
+    #node_identifiers = []
     
+    node_id = 1
     # Create nodes and add to field cache
-    for point in coordinate_set:
-        node = nodeset.createNode(-1, node_template)
-        
-        # check if node is valid
-        
-        
-        #print node.getIdentifier(), node_coordinate 
-        node_identifiers.append(node.getIdentifier())
-        # Set the node coordinates, first set the field cache to use the current node
-        field_cache.setNode(node)
-        # Pass in floats as an array
-        finite_element_field.assignReal(field_cache, point)
-        
+    for coords in coordinate_set:
+        if not merge:
+            node = nodeset.createNode(-1, node_template)
+            #print node.getIdentifier(), node_coordinate 
+            #node_identifiers.append(node.getIdentifier())
+            # Set the node coordinates, first set the field cache to use the current node
+            field_cache.setNode(node)
+            # Pass in floats as an array
+            finite_element_field.assignReal(field_cache, coords)
+        else:
+            node = nodeset.findNodeByIdentifier(node_id)
+            field_cache.setNode(node)
+            node.merge(node_template)
+            finite_element_field.assignReal(field_cache, coords)
+            node_id += 1
+            
     finite_element_field.setTypeCoordinate(True)
     
     return nodeset
@@ -144,11 +148,11 @@ def data_points(ctxt, coordinate_set, field_name='data_coordinates'):
     
     return nodeset
 
-def nodes(ctxt, coordinate_set, field_name='coordinates'):
+def nodes(ctxt, coordinate_set, field_name='coordinates', merge=False):
     if len(coordinate_set) == 0:
         raise RuntimeError("Empty node coordinate list") 
 
-    nodeset = _coordinate_field(ctxt, coordinate_set, 'nodes', field_name)
+    nodeset = _coordinate_field(ctxt, coordinate_set, 'nodes', field_name, merge)
     
     return nodeset
 
@@ -318,4 +322,5 @@ def read_txtnode(filename):
     import numpy as np
     nodes = np.loadtxt(filename)
     return nodes.tolist()
+    
     
