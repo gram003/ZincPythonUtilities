@@ -52,7 +52,11 @@ class Model(object):
         
         self._context = Context("Fit")
         self._zw = zincWidget
-
+        self._projected_coordinates = None
+        self._error_vector = None
+        self._graphicsProjectedPoints = None
+        self._graphicsErrorLines = None
+        
     def context(self):
         return self._context
     
@@ -105,22 +109,20 @@ class Model(object):
         mesh2d = fm.findMeshByDimension(2)
         self._mesh2d = mesh2d
         # m2 = mesh2d # should use m2 as the Hungarian prefix
-        self._gefFaces = fm.createFieldElementGroup(mesh2d)
+        try:
+            self._gefFaces
+        except AttributeError:
+            self._gefFaces = None
+        if self._gefFaces is None:
+            self._gefFaces = fm.createFieldElementGroup(mesh2d)
         print "self._gefFaces", self._gefFaces
         # Get a mesh group to contain the selected faces
         gmFaces = self._gefFaces.getMeshGroup()
         print "gmFaces", gmFaces 
+        gmFaces.removeAllElements()
 
         # outsideFaceIds = [3, 8, 13, 18, 23, 27]
         print "self._mesh2d", self._mesh2d
-
-        # Create a data point group to contain the selected datapoints
-        sData = fm.findNodesetByName('datapoints')
-        print "sData", sData
-        # The FieldNodeGroup is the "main" object containing the data,
-        # but the NodesetGroup has the add/remove api.
-        self._gnfData = fm.createFieldNodeGroup(sData)
-        gsData = self._gnfData.getNodesetGroup()
         
         # get the selection field        
         # scene = region.getScene()
@@ -149,6 +151,21 @@ class Model(object):
                 gmFaces.addElement(mesh2d.findElementByIdentifier(eindex))
         
         # get selected data points
+        # Create a data point group to contain the selected datapoints
+        sData = fm.findNodesetByName('datapoints')
+        print "sData", sData
+        # The FieldNodeGroup is the "main" object containing the data,
+        # but the NodesetGroup has the add/remove api.
+        try:
+            self._gnfData
+        except AttributeError:
+            self._gnfData = None
+        
+        if self._gnfData is None:
+            self._gnfData = fm.createFieldNodeGroup(sData)
+        gsData = self._gnfData.getNodesetGroup()
+        gsData.removeAllNodes()
+
         nodegroup = self._selectionGroup.getFieldNodeGroup(sData)
         gsDataSelected = nodegroup.getNodesetGroup()
         dp_iter = gsDataSelected.createNodeiterator()
@@ -165,7 +182,7 @@ class Model(object):
 
         if count == 0:
             # for developing use data points directly from the main datapoints set
-            dlist = [int(x) for x in "24 26 113 132 157 165 200 228 229 254 269 281 304 312 349 355 374 389 406 427 454 469 490 508 520 533 552".split()]
+            dlist = [int(x) for x in "24 26 113 132 157 165 200 228 229 254 269 281 304 312 349 355 374 389 406 427 454 469 490 520 533 552".split()]
             for dindex in dlist:
                 gsData.addNode(sData.findNodeByIdentifier(dindex))
         
@@ -261,6 +278,8 @@ class Model(object):
             datapoint = dp_iter.next()
         print
         
+        del self._projected_coordinates
+        del self._error_vector
         self._projected_coordinates = fm.createFieldEmbedded(self._coordinates, self._stored_location)
         self._error_vector = fm.createFieldSubtract(self._projected_coordinates, self._data_coordinates)
         
@@ -280,7 +299,11 @@ class Model(object):
         scene.beginChange()
         
         # projected points
+        if not self._graphicsProjectedPoints is None:
+            scene.removeGraphics(self._graphicsProjectedPoints)
         proj = scene.createGraphicsPoints()
+        # save graphics object so that it can be destroyed later
+        self._graphicsProjectedPoints = proj
         proj.setFieldDomainType(Field.DOMAIN_TYPE_DATAPOINTS)
         proj.setCoordinateField(self._projected_coordinates)
         # consider only the selected data points group
@@ -291,7 +314,10 @@ class Model(object):
         attr.setBaseSize([1])
         
         # error lines
+        if not self._graphicsErrorLines is None:
+            scene.removeGraphics(self._graphicsErrorLines)
         err = scene.createGraphicsPoints()
+        self._graphicsErrorLines = err
         err.setFieldDomainType(Field.DOMAIN_TYPE_DATAPOINTS)
         err.setCoordinateField(self._projected_coordinates)
         err.setSubgroupField(self._gnfData)
@@ -400,19 +426,24 @@ class Model(object):
             dp = dp_iter.next()
             
         region.writeFile("after.exregi")
-
+        
+        
+        self.show_fitted()
+    
+    def _setGraphicsCoordinates(self, coordinate_field):
+        scene = self.context().getDefaultRegion().getScene()
+        for name in ['nodes', 'lines', 'surfaces']:
+            graphics = scene.findGraphicsByName(name)
+            graphics. setCoordinateField(coordinate_field)
         
     def show_reference(self):
-        scene = self.context().getDefaultRegion().getScene()
-        surfaces = scene.findGraphicsByName("surfaces")
-        surfaces.setCoordinateField(self._reference_coordinates)
-        self._zw.updateGL() # shouldn't be necessary
+        self._setGraphicsCoordinates(self._reference_coordinates)
+
+#         self._zw.updateGL() # shouldn't be necessary
         
     def show_fitted(self):
-        scene = self.context().getDefaultRegion().getScene()
-        surfaces = scene.findGraphicsByName("surfaces")
-        surfaces.setCoordinateField(self._coordinates)
-        self._zw.updateGL()
+        self._setGraphicsCoordinates(self._coordinates)
+        #self._zw.updateGL()
         
 class FitDlg(QtGui.QWidget):
     def __init__(self, parent=None):
@@ -484,15 +515,26 @@ class FitDlg(QtGui.QWidget):
         T, trans_points = ICP.fitDataRigidEPDP(nodes, d)
         
         elems = mesh.read_txtelem("abi_femur_head.elem.txt")
-        mesh.linear_mesh(self._model.context(), trans_points.tolist(), elems)
-        nodeset = mesh.nodes(self._model.context(), trans_points.tolist(), 'reference_coordinates')
+        
+#         initial_coords = 'coordinates'
+#         next_coords = 'reference_coordinates'
+        initial_coords = 'reference_coordinates'
+        next_coords = 'coordinates'
+        
+        mesh.linear_mesh(self._model.context(), trans_points.tolist(), elems,
+                         coordinate_field_name=initial_coords)
+        mesh.linear_mesh(self._model.context(), trans_points.tolist(), elems,
+                         coordinate_field_name=next_coords)
+        nodeset = mesh.nodes(self._model.context(), trans_points.tolist(), next_coords)
         print funcname(), "nodeset", nodeset
         
         # The datapoint graphics don't appear until the rest of the mesh is loaded,
         # Not sure why that is.
-        mesh.createDatapointGraphics(self._model.context())
-        mesh.createNodeGraphics(self._model.context())
-        mesh.createSurfaceGraphics(self._model.context())
+        mesh.createDatapointGraphics(self._model.context(), datapoints_name='data')
+        mesh.createNodeGraphics(self._model.context(), nodes_name='nodes',
+                                 coordinate_field_name=initial_coords)
+        mesh.createSurfaceGraphics(self._model.context(), surfaces_name='surfaces', lines_name='lines',
+                                    coordinate_field_name=initial_coords)
          
         self.ui._zincWidget.viewAll()
         
@@ -549,11 +591,11 @@ class FitDlg(QtGui.QWidget):
     def on_select_faces(self):
         # Configure the UI to be in "face selection mode"
         self.ui._zincWidget.setSelectModeElement()
-        self.ui._zincWidget.setSelectionModeAdditive()
+        self.ui._zincWidget.setSelectionModeAdditive(True)
     
     def on_select_data(self):
         self.ui._zincWidget.setSelectModeData()
-        self.ui._zincWidget.setSelectionModeAdditive()
+        self.ui._zincWidget.setSelectionModeAdditive(True)
         
     def on_project(self):
         self._model.project()
