@@ -23,12 +23,12 @@ element_set_1d = [[1, 2],
 
     
  
-#zlab.data_points(node_coordinate_set, datapoint_size=0.13, datapoint_label=True)
-zlab.nodes(node_coordinate_set, node_size=0.1, node_label=True)
+#zlab.data_points(node_coordinate_set, datapoints_size=0.13, datapoints_number=True)
+#zlab.nodes(node_coordinate_set, nodes_size=0.1, nodes_number=True)
 # this will give an error because the 'nodes' nodeset of the field 'coordinates' already exists
-#zlab.linear_mesh(node_coordinate_set, element_set_1d)
+zlab.linear_mesh(node_coordinate_set, element_set_1d, nodes_size=0.2, nodes_number=True)
 #zlab.linear_mesh(node_coordinate_set, element_set_2d)
-#zlab.linear_mesh(node_coordinate_set, element_set_3d, node_size=0.1, node_label=True)
+#zlab.linear_mesh(node_coordinate_set, element_set_3d, nodes_size=0.1, nodes_number=True)
 zlab.show()
 # import time
 # time.sleep(10)
