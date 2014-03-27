@@ -424,7 +424,9 @@ class Model(object):
             
         region.writeFile("after.exregi")
         
-        
+        # FIXME: Not sure why this is necessary, but the graphics don't
+        # update if only show_fitted is called.
+        self.show_reference()
         self.show_fitted()
     
     def _setGraphicsCoordinates(self, coordinate_field):
@@ -518,8 +520,11 @@ class FitDlg(QtGui.QWidget):
         
         mesh.linear_mesh(self._model.context(), trans_points.tolist(), elems,
                          coordinate_field_name=coords)
-        merge = True
-        mesh.nodes(self._model.context(), trans_points.tolist(), ref_coords, merge)
+        
+        # Load the mesh again, this time merging with the previous mesh
+        # and renaming the coordinate field to reference_coordinates.
+        mesh.linear_mesh(self._model.context(), trans_points.tolist(), elems,
+                         coordinate_field_name=ref_coords, merge=True)
         
 #         # for debugging
 #         self._model.context().getDefaultRegion().writeFile("junk_region.exreg")
