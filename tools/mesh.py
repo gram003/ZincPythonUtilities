@@ -322,5 +322,4 @@ def read_txtnode(filename):
     import numpy as np
     nodes = np.loadtxt(filename)
     return nodes.tolist()
-    
-    
+
