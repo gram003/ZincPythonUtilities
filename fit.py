@@ -89,11 +89,6 @@ class Model(object):
         print "self._data_coordinates", self._data_coordinates
         # print self._data_coordinates_group
         
-        self._copyField(self._coordinates)
-        
-    def _copyField(self, field):
-        pass
-        
     def project(self):
         # project selected data points onto selected faces
 #         self._create2DElementGroup(root_region)
@@ -515,26 +510,25 @@ class FitDlg(QtGui.QWidget):
         T, trans_points = ICP.fitDataRigidEPDP(nodes, d)
         
         elems = mesh.read_txtelem("abi_femur_head.elem.txt")
-        
-#         initial_coords = 'coordinates'
-#         next_coords = 'reference_coordinates'
-        initial_coords = 'reference_coordinates'
-        next_coords = 'coordinates'
+
+        coords = 'coordinates'
+        ref_coords = 'reference_coordinates'
         
         mesh.linear_mesh(self._model.context(), trans_points.tolist(), elems,
-                         coordinate_field_name=initial_coords)
-        mesh.linear_mesh(self._model.context(), trans_points.tolist(), elems,
-                         coordinate_field_name=next_coords)
-        nodeset = mesh.nodes(self._model.context(), trans_points.tolist(), next_coords)
-        print funcname(), "nodeset", nodeset
+                         coordinate_field_name=coords)
+        merge = True
+        mesh.nodes(self._model.context(), trans_points.tolist(), ref_coords, merge)
+        
+#         # for debugging
+#         self._model.context().getDefaultRegion().writeFile("junk_region.exreg")
         
         # The datapoint graphics don't appear until the rest of the mesh is loaded,
-        # Not sure why that is.
+        # FIXME: Not sure why that is.
         mesh.createDatapointGraphics(self._model.context(), datapoints_name='data')
         mesh.createNodeGraphics(self._model.context(), nodes_name='nodes',
-                                 coordinate_field_name=initial_coords)
+                                 coordinate_field_name=coords)
         mesh.createSurfaceGraphics(self._model.context(), surfaces_name='surfaces', lines_name='lines',
-                                    coordinate_field_name=initial_coords)
+                                    coordinate_field_name=coords)
          
         self.ui._zincWidget.viewAll()
         
@@ -560,10 +554,11 @@ class FitDlg(QtGui.QWidget):
             # the filetype filter
             files, = files[:len(files) - 1]
             
-            # load the mesh
-            refcoords, coords = load_mesh(self._model.region(), files)
-            self._model.setReferenceCoordinates(refcoords)
-            self._model.setCoordinates(coords)
+#             # load the mesh
+#             refcoords, coords = load_mesh(self._model.region(), files)
+#             self._model.setReferenceCoordinates(refcoords)
+#             self._model.setCoordinates(coords)
+            raise NotImplementedError()
             
             self.ui._zincWidget.viewAll()
             
@@ -580,9 +575,10 @@ class FitDlg(QtGui.QWidget):
             # the filetype filter
             files, = files[:len(files) - 1]
             
-            # load the data
-            data = load_data(self._model.region(), files)
-            self._model.setDataCoordinates(data)
+#             # load the data
+#             data = load_data(self._model.region(), files)
+#             self._model.setDataCoordinates(data)
+            raise NotImplementedError()
             
         except Exception as e:
             print e
