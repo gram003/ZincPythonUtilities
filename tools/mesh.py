@@ -188,8 +188,11 @@ def createDatapointGraphics(ctxt, **kwargs):
         att.setBaseSize(kwargs['datapoints_size'])
     else:
         att.setBaseSize(1)
-    if 'datapoints_number' in kwargs and kwargs['datapoints_number']:
-        cmiss_number_field = field_module.findFieldByName('cmiss_number')
+    if 'datapoints_label' in kwargs:
+        label_field_name = kwargs['datapoints_label']
+        if label_field_name == 'id':
+            label_field_name = 'cmiss_number' 
+        cmiss_number_field = field_module.findFieldByName(label_field_name)
         print funcname(), "cmiss_number_field.isValid()", cmiss_number_field.isValid()
         att.setLabelField(cmiss_number_field)
 
@@ -231,8 +234,11 @@ def createNodeGraphics(ctxt, **kwargs):
         att.setBaseSize(kwargs['nodes_size'])
     else:
         att.setBaseSize([1])
-    if 'nodes_number' in kwargs and kwargs['nodes_number']:
-        cmiss_number_field = field_module.findFieldByName('cmiss_number')
+    if 'nodes_label' in kwargs:
+        label_field_name = kwargs['nodes_label']
+        if label_field_name == 'id':
+            label_field_name = 'cmiss_number' 
+        cmiss_number_field = field_module.findFieldByName(label_field_name)
         
         print "cmiss_number_field.isValid()", cmiss_number_field.isValid()
         att.setLabelField(cmiss_number_field)
