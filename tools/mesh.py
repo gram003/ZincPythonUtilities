@@ -90,13 +90,12 @@ def linear_mesh(ctxt, node_coordinate_set, element_set, **kwargs):
 
     default_region = ctxt.getDefaultRegion()
     field_module = default_region.getFieldmodule()
-    
-    if 'coordinate_field_name' in kwargs:
-        coordinate_field_name = kwargs['coordinate_field_name']
-    else:
-        coordinate_field_name = 'coordinates'
 
-    nodeset = _coordinate_field(ctxt, node_coordinate_set, 'nodes', coordinate_field_name)
+    # Parse kwargs    
+    coordinate_field_name = kwargs.get('coordinate_field_name', 'coordinates')
+    merge = kwargs.get('merge', False)
+
+    nodeset = _coordinate_field(ctxt, node_coordinate_set, 'nodes', coordinate_field_name, merge)
 
     # Create and configure an element template for the appropriate mesh type.
     element_node_count = len(element_set[0])
@@ -199,20 +198,21 @@ def createDatapointGraphics(ctxt, **kwargs):
     att = diamond.getGraphicspointattributes()
     att.setGlyphShapeType(Glyph.SHAPE_TYPE_DIAMOND)
     diamond.setMaterial(green)
-    if 'datapoints_size' in kwargs:
-        att.setBaseSize(kwargs['datapoints_size'])
-    else:
-        att.setBaseSize(1)
-    if 'datapoints_label' in kwargs:
-        label_field_name = kwargs['datapoints_label']
+    
+    base_size = kwargs.get('datapoints_size', 1)
+    att.setBaseSize(base_size)
+    
+    label_field_name = kwargs.get('datapoints_label')
+    if label_field_name:
         if label_field_name == 'id':
             label_field_name = 'cmiss_number' 
         cmiss_number_field = field_module.findFieldByName(label_field_name)
         print funcname(), "cmiss_number_field.isValid()", cmiss_number_field.isValid()
         att.setLabelField(cmiss_number_field)
 
-    if 'datapoints_name' in kwargs:
-        diamond.setName(kwargs['datapoints_name'])
+    datapoints_name = kwargs.get('datapoints_name')
+    if datapoints_name:
+        diamond.setName(datapoints_name)
       
     scene.endChange()
 
@@ -308,8 +308,8 @@ def createSurfaceGraphics(ctxt, **kwargs):
     
 def read_txtelem(filename):
     '''
-    Read element definitions from a text file. One elements is specified
-    on each line as a list of the nodes in cmiss order. 
+    Read element definitions from a text file. Elements are specified
+    one per line as a list of the nodes in cmiss order. 
     
     '''
     elemnum = 0
