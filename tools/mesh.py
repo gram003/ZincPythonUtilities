@@ -1,3 +1,4 @@
+import sys
 import math
 
 from opencmiss.zinc.field import Field
@@ -6,7 +7,11 @@ from opencmiss.zinc.element import Element, Elementbasis
 
 _defaultGraphicsCreated = False
 
-def _coordinate_field(ctxt, coordinate_set, nodeset_type, field_name):
+# for diagnostics
+def funcname():
+    return sys._getframe(1).f_code.co_name
+
+def _coordinate_field(ctxt, coordinate_set, nodeset_type, coordinate_field_name):
     '''
     Create a coordinate field given a coordinate list.
     Returns the nodeset
@@ -29,7 +34,7 @@ def _coordinate_field(ctxt, coordinate_set, nodeset_type, field_name):
     field_module.beginChange()
 
     finite_element_field = field_module.createFieldFiniteElement(coord_count)
-    finite_element_field.setName(field_name)
+    finite_element_field.setName(coordinate_field_name)
     
     # Find a special node set named 'nodes' or 'datapoints'
     nodeset = field_module.findNodesetByName(nodeset_type)
@@ -44,6 +49,9 @@ def _coordinate_field(ctxt, coordinate_set, nodeset_type, field_name):
     # Create nodes and add to field cache
     for point in coordinate_set:
         node = nodeset.createNode(-1, node_template)
+        
+        # check if node is valid
+        
         
         #print node.getIdentifier(), node_coordinate 
         node_identifiers.append(node.getIdentifier())
@@ -62,7 +70,10 @@ _shape_type_map = {1: Element.SHAPE_TYPE_LINE,
                    3: Element.SHAPE_TYPE_CUBE}
 
 
-def linear_mesh(ctxt, node_coordinate_set, element_set):
+# findNodeByIdentifier
+# node.merge(template)
+
+def linear_mesh(ctxt, node_coordinate_set, element_set, **kwargs):
     '''
     Create linear finite elements given node and element lists
     '''
@@ -75,8 +86,13 @@ def linear_mesh(ctxt, node_coordinate_set, element_set):
 
     default_region = ctxt.getDefaultRegion()
     field_module = default_region.getFieldmodule()
+    
+    if 'coordinate_field_name' in kwargs:
+        coordinate_field_name = kwargs['coordinate_field_name']
+    else:
+        coordinate_field_name = 'coordinates'
 
-    nodeset = _coordinate_field(ctxt, node_coordinate_set, 'nodes', 'coordinates')
+    nodeset = _coordinate_field(ctxt, node_coordinate_set, 'nodes', coordinate_field_name)
 
     # Create and configure an element template for the appropriate mesh type.
     element_node_count = len(element_set[0])
@@ -101,7 +117,7 @@ def linear_mesh(ctxt, node_coordinate_set, element_set):
     
     # Define a nodally interpolated element field or field component in the
     # element_template
-    finite_element_field = field_module.findFieldByName('coordinates')
+    finite_element_field = field_module.findFieldByName(coordinate_field_name)
     element_template.defineFieldSimpleNodal(finite_element_field,
                                             -1,
                                             linear_basis,
@@ -119,20 +135,20 @@ def linear_mesh(ctxt, node_coordinate_set, element_set):
     field_module.defineAllFaces() 
     field_module.endChange()
     
-def data_points(ctxt, coordinate_set, fieldname='data_coordinates'):
+def data_points(ctxt, coordinate_set, field_name='data_coordinates'):
     
     if len(coordinate_set) == 0:
         raise RuntimeError("Empty datapoint coordinate list") 
                 
-    nodeset = _coordinate_field(ctxt, coordinate_set, 'datapoints', fieldname)
+    nodeset = _coordinate_field(ctxt, coordinate_set, 'datapoints', field_name)
     
     return nodeset
 
-def nodes(ctxt, coordinate_set, fieldname='coordinates'):
+def nodes(ctxt, coordinate_set, field_name='coordinates'):
     if len(coordinate_set) == 0:
         raise RuntimeError("Empty node coordinate list") 
 
-    nodeset = _coordinate_field(ctxt, coordinate_set, 'nodes', fieldname)
+    nodeset = _coordinate_field(ctxt, coordinate_set, 'nodes', field_name)
     
     return nodeset
 
@@ -145,7 +161,9 @@ def _createDefaultGraphics(ctxt):
 
 def createDatapointGraphics(ctxt, **kwargs):
     
-    _createDefaultGraphics(ctxt)
+    #_createDefaultGraphics(ctxt)
+    glyph_module = ctxt.getGlyphmodule()
+    glyph_module.defineStandardGlyphs()
 
     default_region = ctxt.getDefaultRegion()
 
@@ -166,14 +184,17 @@ def createDatapointGraphics(ctxt, **kwargs):
     att = diamond.getGraphicspointattributes()
     att.setGlyphShapeType(Glyph.SHAPE_TYPE_DIAMOND)
     diamond.setMaterial(green)
-    if 'datapoint_size' in kwargs:
-        att.setBaseSize(kwargs['datapoint_size'])
+    if 'datapoints_size' in kwargs:
+        att.setBaseSize(kwargs['datapoints_size'])
     else:
-        att.setBaseSize([1])
-    if 'datapoint_label' in kwargs and kwargs['datapoint_label']:
+        att.setBaseSize(1)
+    if 'datapoints_number' in kwargs and kwargs['datapoints_number']:
         cmiss_number_field = field_module.findFieldByName('cmiss_number')
-        print "cmiss_number_field.isValid()", cmiss_number_field.isValid()
+        print funcname(), "cmiss_number_field.isValid()", cmiss_number_field.isValid()
         att.setLabelField(cmiss_number_field)
+
+    if 'datapoints_name' in kwargs:
+        diamond.setName(kwargs['datapoints_name'])
       
     scene.endChange()
 
@@ -190,7 +211,11 @@ def createNodeGraphics(ctxt, **kwargs):
     scene.beginChange()
             
     field_module = default_region.getFieldmodule()
-    finite_element_field = field_module.findFieldByName('coordinates')
+    if 'coordinate_field_name' in kwargs:
+        coordinate_field_name = kwargs['coordinate_field_name']
+    else:
+        coordinate_field_name = 'coordinates'
+    finite_element_field = field_module.findFieldByName(coordinate_field_name)
 
 #     # Diagnositics    
 #     fm = field_module
@@ -202,17 +227,21 @@ def createNodeGraphics(ctxt, **kwargs):
     sphere.setFieldDomainType(Field.DOMAIN_TYPE_NODES)
     att = sphere.getGraphicspointattributes()
     att.setGlyphShapeType(Glyph.SHAPE_TYPE_SPHERE)
-    if 'node_size' in kwargs:
-        att.setBaseSize(kwargs['node_size'])
+    if 'nodes_size' in kwargs:
+        att.setBaseSize(kwargs['nodes_size'])
     else:
         att.setBaseSize([1])
-    if 'node_label' in kwargs and kwargs['node_label']:
+    if 'nodes_number' in kwargs and kwargs['nodes_number']:
         cmiss_number_field = field_module.findFieldByName('cmiss_number')
         
         print "cmiss_number_field.isValid()", cmiss_number_field.isValid()
         att.setLabelField(cmiss_number_field)
+
+    if 'nodes_name' in kwargs:
+        sphere.setName(kwargs['nodes_name'])
       
     scene.endChange()
+    
 
 def createSurfaceGraphics(ctxt, **kwargs):
     '''
@@ -236,18 +265,25 @@ def createSurfaceGraphics(ctxt, **kwargs):
             
     # createSurfaceGraphic graphic start
     field_module = default_region.getFieldmodule()
-    finite_element_field = field_module.findFieldByName('coordinates')
+    if 'coordinate_field_name' in kwargs:
+        coordinate_field_name = kwargs['coordinate_field_name']
+    else:
+        coordinate_field_name = 'coordinates'
+    finite_element_field = field_module.findFieldByName(coordinate_field_name)
      
     # Create line graphics
     lines = scene.createGraphicsLines()
     lines.setCoordinateField(finite_element_field)
+    if 'lines_name' in kwargs:
+        lines.setName(kwargs['lines_name'])
      
-    surface = scene.createGraphicsSurfaces()
-    surface.setCoordinateField(finite_element_field)
-    surface.setName("surface")
+    surfaces = scene.createGraphicsSurfaces()
+    surfaces.setCoordinateField(finite_element_field)
+    if 'surfaces_name' in kwargs:
+        surfaces.setName(kwargs['surfaces_name'])
      
     scene.endChange()
-    
+        
     
 def read_txtelem(filename):
     '''
