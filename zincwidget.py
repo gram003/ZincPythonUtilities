@@ -97,8 +97,8 @@ class ZincWidget(QtOpenGL.QGLWidget):
         '''
         return self._scene_viewer
     
-    def setSelectionModeAdditive(self):
-        self._selectionAlwaysAdditive = True
+    def setSelectionModeAdditive(self, state):
+        self._selectionAlwaysAdditive = state
 
     def setSelectModeNode(self):
         '''
