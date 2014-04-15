@@ -166,6 +166,31 @@ def nodes(ctxt, coordinate_set, field_name='coordinates', merge=False):
     
     return nodeset
 
+def nodes_to_list(ctxt, numValues=3, coordFieldName='coordinates'):
+    """
+    Extract nodes into a Python list
+    """
+    region = ctxt.getDefaultRegion()
+    fm = region.getFieldmodule()
+    sNodes = fm.findNodesetByName('nodes')
+    field = fm.findFieldByName(coordFieldName)
+
+    # extract the list of nodes 
+    node_list = []
+    node_iter = sNodes.createNodeiterator()
+    cache = fm.createFieldcache()
+    count = 0
+    node = node_iter.next()
+    while node.isValid():
+        #node_id = node.getIdentifier()
+        cache.setNode(node)
+        result, outValues = field.evaluateReal(cache, numValues)
+        node_list.append(outValues)
+        node = node_iter.next()
+        count += 1
+
+    return node_list
+
 def _createDefaultGraphics(ctxt):
     global _defaultGraphicsCreated
     if not _defaultGraphicsCreated:
