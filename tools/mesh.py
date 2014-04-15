@@ -43,16 +43,12 @@ def _coordinate_field(ctxt, coordinate_set, nodeset_type, coordinate_field_name,
     # Set the finite element coordinate field for the nodes to use
     node_template.defineField(finite_element_field)
     field_cache = field_module.createFieldcache()
-
-    #node_identifiers = []
     
     node_id = 1
     # Create nodes and add to field cache
     for coords in coordinate_set:
         if not merge:
             node = nodeset.createNode(-1, node_template)
-            #print node.getIdentifier(), node_coordinate 
-            #node_identifiers.append(node.getIdentifier())
             # Set the node coordinates, first set the field cache to use the current node
             field_cache.setNode(node)
             # Pass in floats as an array
@@ -102,6 +98,8 @@ def linear_mesh(ctxt, node_coordinate_set, element_set, **kwargs):
 
     order = int(math.log(element_node_count, 2))
     #if __debug__: print "mesh order", order        
+
+    field_module.beginChange()
 
     mesh = field_module.findMeshByDimension(order)
     element_template = mesh.createElementtemplate()
@@ -199,29 +197,30 @@ def _nodes_to_list(ctxt, nodesetName, numValues=3, coordFieldName='coordinates')
 
 def _list_to_nodes(ctxt, coordinate_set, nodesetName, coordFieldName='coordinates'):
     """
-    Replace nodes with those is the given list.
+    Update nodes with the coordinates in the given coordinate_set.
     """
     region = ctxt.getDefaultRegion()
     fm = region.getFieldmodule()
     sNodes = fm.findNodesetByName(nodesetName)
     field = fm.findFieldByName(coordFieldName)
+    
+    fm.beginChange()
 
     node_template = sNodes.createNodetemplate()
 
     # Set the finite element coordinate field for the nodes to use
-    node_template.defineField(field)
-    field_cache = fm.createFieldcache()
+    #node_template.defineField(field)
+    cache = fm.createFieldcache()
 
+    # Update nodes with new coordinates 
     node_id = 1
-    # Create nodes and add to field cache
     for coords in coordinate_set:
         node = sNodes.findNodeByIdentifier(node_id)
-        field_cache.setNode(node)
-        node.merge(node_template)
-        field.assignReal(field_cache, coords)
+        cache.setNode(node)
+        field.assignReal(cache, coords)
         node_id += 1
             
-    #field.setTypeCoordinate(True)
+    fm.endChange()
     
 
 def nodes_to_list(ctxt, numValues=3, coordFieldName='coordinates'):
