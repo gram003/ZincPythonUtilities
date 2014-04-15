@@ -7,6 +7,8 @@ from opencmiss.zinc.element import Element, Elementbasis
 from opencmiss.zinc.field import Field, FieldFindMeshLocation, FieldGroup
 from opencmiss.zinc.optimisation import Optimisation
 
+import tools.mesh as mesh
+
 # for diagnostics
 import numpy as np
 
@@ -83,9 +85,24 @@ class Fitter(object):
     def register_automatic(self):
         # Use Ju's ICP
         # extract nodes into a numpy array
-        import tools.mesh as mesh
         node_list = mesh.nodes_to_list(self.context(), 3, 'coordinates')
         print node_list
+        data_list = mesh.data_to_list(self.context(), 3, 'data_coordinates')
+        print data_list
+        
+    def data_mirror(self, axis):
+        """
+        Reflect the data in a plane given by axis
+        0 - yz, 1 - xz, 2 - xy
+        """
+        t = np.identity(3)
+        t[axis, axis] = -1
+        data_list = mesh.data_to_list(self.context(), 3, 'data_coordinates')
+        a = np.array(data_list)
+        b = a.dot(t)
+        mesh.list_to_data(self.context(), b.tolist(), 'data_coordinates')
+        
+
         
     def project(self):
         # project selected data points onto selected faces
