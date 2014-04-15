@@ -1,0 +1,196 @@
+
+from enaml.widgets.api import (
+    MainWindow, ToolBar, Action, ActionGroup, Container, MenuBar, Menu,
+    FileDialogEx, DockPane, PushButton, RadioButton, GroupBox, ObjectCombo
+)
+
+from enaml.layout.api import vbox, hbox, spacer
+
+from enaml_zinc_widget import EZincWidget
+
+#from main_controller import MainController
+#controller = MainController()
+
+enamldef MyMenuBar(MenuBar): mb:
+    attr path : unicode = u""
+    attr controller = parent.controller
+    Menu:
+        title = '&File'
+#         Action:
+#             text = 'New File\tCtrl+N'
+#             triggered :: print 'New File triggered'
+        Action:
+            text = 'Open File\tCtrl+O'
+            triggered ::
+                #print 'Open File triggered'
+                path = FileDialogEx.get_open_file_name(mb.parent)
+                if path:
+                    controller.open_file(path)
+#         Action:
+#             text = 'Open Folder...'
+#             triggered :: print 'Open Folder triggered'
+        Action:
+            text = 'Load nodes ...'
+            triggered ::
+                path = FileDialogEx.get_open_file_name(mb.parent)
+                if path:
+                    controller.load_nodes(path)
+        Action:
+            text = 'Load elements ...'
+            triggered ::
+                path = FileDialogEx.get_open_file_name(mb.parent)
+                if path:
+                    controller.load_elements(path)
+        Action:
+            text = 'Load data ...'
+            triggered ::
+                path = FileDialogEx.get_open_file_name(mb.parent)
+                if path:
+                    controller.load_data(path)
+        Action:
+            text = 'Save file ...'
+            triggered :: 
+                path = FileDialogEx.get_save_file_name(mb.parent)
+                if path:
+                    controller.save_file(path)
+        Action:
+            text = 'Quit'
+            # Action:Menu:MenuBar:MainWindow
+            triggered :: parent.parent.parent.close()
+    Menu:
+        title = '&Edit'
+        Action:
+            text = 'Undo\tCtrl+Z'
+            triggered :: print 'Undo triggered'
+        Action:
+            text = 'Redo\tCtrl+R'
+            triggered :: print 'Redo triggered'
+        Menu:
+            title = 'Undo Selection'
+            Action:
+                text = 'Undo Insert\tCtrl+U'
+                triggered :: print 'Undo Insert triggered'
+            Action:
+                text = 'Redo Insert\tCtrl+Shift+U'
+                enabled = False
+                triggered :: print 'Redo Insert triggered'
+        Action:
+            separator = True
+        Action:
+            text = 'Cut\tCtrl+X'
+            triggered :: print "Cut triggered"
+        Action:
+            text = 'Copy\tCtrl+C'
+            triggered :: print 'Copy triggered'
+        Action:
+            text = 'Paste\tCtrl+V'
+            triggered :: print 'Paste triggered'
+    Menu:
+        title = '&View'
+        Action:
+            text = 'Reset'
+            triggered :: controller.view_all() 
+
+
+enamldef RegistrationDockPane(DockPane):
+    attr controller = parent.controller
+    title = "Registration"
+    Container:
+        constraints = [
+                       vbox(hbox(mirror, axis),
+                            auto,
+                            manual)
+        ]
+        PushButton: mirror:
+            text = 'Mirror'
+            clicked :: controller.mirror(axis.selected)
+        ObjectCombo: axis:
+            items = ['x', 'y', 'z']
+            hug_width = 'ignore'
+            
+        PushButton: auto:
+            text = 'Automatic'
+            clicked ::controller.register_automatic()
+        PushButton: manual:
+            text = 'Manual'
+enamldef FitDockPane(DockPane):
+    title = "Fit"
+    Container:
+        GroupBox:
+            RadioButton:
+                checkable = True
+                text = 'Select data'
+            RadioButton:
+                checkable = True
+                text = 'Select faces'
+        GroupBox:
+            PushButton:
+    #             Action:
+    #                 checkable = True
+                    text = 'Project'
+            PushButton:
+    #             Action:
+    #                 checkable = True
+                    text = 'Fit'
+            
+enamldef MyToolBar(ToolBar):
+    attr controller = parent.controller
+    alias ag: ag
+    ActionGroup: ag:
+        alias registration
+        Action: registration:
+            checkable = True
+            text = 'Reg'
+        alias fit
+        Action: fit:
+            checkable = True
+            text = 'Fit'
+#             triggered :: controller.on_select_data()
+#         Action:
+#             checkable = True
+#             text = 'Sel faces'
+#             triggered :: controller.on_select_faces()
+        Action:
+            separator = True
+#     Action:
+#         checkable = True
+#         text = 'Checkable'
+#     Action:
+#         checkable = True
+#         text = 'ToolBar'
+#     Action:
+#         checkable = True
+#         text = 'Buttons'
+#     Action:
+#         separator = True
+#     Action:
+#         text = 'Project'
+#         tool_tip = text
+#     Action:
+#         text = 'Fit'
+#         tool_tip = text
+
+enamldef Main(MainWindow): main:
+    title = 'Zinc Widget'
+    initial_size = (800,600)
+    attr controller
+    MyMenuBar:
+        pass
+    MyToolBar: tb:
+        pass
+#     Conditional:
+#         condition << bool(tb.data_toolbox)
+    RegistrationDockPane: reg_pane:
+        floating = False
+        visible << tb.ag.registration.checked
+    FitDockPane: fit_pane:
+        floating = False
+        visible << tb.ag.fit.checked
+    Container:
+        padding = 0
+                
+        EZincWidget:
+            name = "ZincWidget"
+            # need to create an event that gets called when it is created
+            
+    closed :: controller.on_closed()
