@@ -75,6 +75,7 @@ class ZincWidget(QtOpenGL.QGLWidget):
         self._elemSelectMode = True
         self._selectionMode = _SelectionMode.NONE
         self._selectionGroup = None
+        self._selectionGroupName = "SelectionGroup"
         self._selectionBox = None
         self._selectionAlwaysAdditive = False
         
@@ -144,6 +145,15 @@ class ZincWidget(QtOpenGL.QGLWidget):
         
     def getSelectionGroup(self):
         return self._selectionGroup
+
+    def getSelectionGroupName(self):
+        """
+        Get the selection group name that can be used to query the field module
+        to get the selection group.
+        E.g.:
+        selectionGroup = field_module m.findFieldByName(name).castGroup()
+        """
+        return self._selectionGroupName
         
     def setProjectionMode(self, mode):
         '''
@@ -178,6 +188,7 @@ class ZincWidget(QtOpenGL.QGLWidget):
         scene = region.getScene()
         fieldmodule = region.getFieldmodule()
         self._selectionGroup = fieldmodule.createFieldGroup()
+        self._selectionGroup.setName(self._selectionGroupName)
         scene.setSelectionField(self._selectionGroup)
         self._scene_picker = scene.createScenepicker()
         self._scene_viewer.setScene(scene)

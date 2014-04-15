@@ -26,9 +26,9 @@ element_set_1d = [[1, 2],
 #zlab.data_points(node_coordinate_set, datapoints_size=0.13, datapoints_label='id')
 #zlab.nodes(node_coordinate_set, nodes_size=0.1, nodes_label='id')
 # this will give an error because the 'nodes' nodeset of the field 'coordinates' already exists
-zlab.linear_mesh(node_coordinate_set, element_set_1d, nodes_size=0.2, nodes_label='id')
+#zlab.linear_mesh(node_coordinate_set, element_set_1d, nodes_size=0.2, nodes_label='id')
 #zlab.linear_mesh(node_coordinate_set, element_set_2d)
-#zlab.linear_mesh(node_coordinate_set, element_set_3d, nodes_size=0.1, nodes_label='id')
+zlab.linear_mesh(node_coordinate_set, element_set_3d, nodes_size=0.1, nodes_label='id')
 zlab.show()
 # import time
 # time.sleep(10)
