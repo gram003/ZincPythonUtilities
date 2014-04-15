@@ -166,6 +166,12 @@ def nodes(ctxt, coordinate_set, field_name='coordinates', merge=False):
     
     return nodeset
 
+def linear_to_cubic(ctxt, nodes, elements):
+# Do we create linear elements in zinc first? I guess that we need those
+# in order to interpolate the positions of the internal nodes.
+# Is it better to create new elements or get the existing elements?
+    pass
+
 def nodes_to_list(ctxt, numValues=3, coordFieldName='coordinates'):
     """
     Extract nodes into a Python list
