@@ -2,10 +2,11 @@
 # See the examples at https://svn.physiomeproject.org/svn/cmiss/zinc/bindings/trunk/python/ for further
 # information.
 
+# Prefer PyQt4 over PySide
 try:
-    from PySide import QtCore, QtOpenGL
-except ImportError:
     from PyQt4 import QtCore, QtOpenGL
+except ImportError:
+    from PySide import QtCore, QtOpenGL
 
 # from opencmiss.zinc.glyph import Glyph
 from opencmiss.zinc.sceneviewer import Sceneviewer, Sceneviewerevent
