@@ -52,7 +52,7 @@ class ZincWidget(QtOpenGL.QGLWidget):
     try:
         # PySide
         graphicsInitialized = QtCore.Signal()
-    except AttributError:
+    except AttributeError:
         # PyQt
         graphicsInitialized = QtCore.pyqtSignal()
     
