@@ -334,8 +334,8 @@ def createSurfaceGraphics(ctxt, **kwargs):
 def read_txtelem(filename):
     '''
     Read element definitions from a text file. Elements are specified
-    one per line as a list of the nodes in cmiss order. 
-    
+    one per line as a list of the nodes in cmiss order.
+    Returns a Python list of lists
     '''
     elemnum = 0
     elem = []
@@ -354,6 +354,7 @@ def read_txtelem(filename):
 def read_txtnode(filename):
     '''
     Read a list of coordinates from a file. One coordinate set per line.
+    Returns a Python list of lists 
     '''
     import numpy as np
     nodes = np.loadtxt(filename)
