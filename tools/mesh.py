@@ -172,13 +172,13 @@ def linear_to_cubic(ctxt, nodes, elements):
 # Is it better to create new elements or get the existing elements?
     pass
 
-def nodes_to_list(ctxt, numValues=3, coordFieldName='coordinates'):
+def _nodes_to_list(ctxt, nodesetName, numValues=3, coordFieldName='coordinates'):
     """
     Extract nodes into a Python list
     """
     region = ctxt.getDefaultRegion()
     fm = region.getFieldmodule()
-    sNodes = fm.findNodesetByName('nodes')
+    sNodes = fm.findNodesetByName(nodesetName)
     field = fm.findFieldByName(coordFieldName)
 
     # extract the list of nodes 
@@ -196,6 +196,42 @@ def nodes_to_list(ctxt, numValues=3, coordFieldName='coordinates'):
         count += 1
 
     return node_list
+
+def _list_to_nodes(ctxt, coordinate_set, nodesetName, coordFieldName='coordinates'):
+    """
+    Replace nodes with those is the given list.
+    """
+    region = ctxt.getDefaultRegion()
+    fm = region.getFieldmodule()
+    sNodes = fm.findNodesetByName(nodesetName)
+    field = fm.findFieldByName(coordFieldName)
+
+    node_template = sNodes.createNodetemplate()
+
+    # Set the finite element coordinate field for the nodes to use
+    node_template.defineField(field)
+    field_cache = fm.createFieldcache()
+
+    node_id = 1
+    # Create nodes and add to field cache
+    for coords in coordinate_set:
+        node = sNodes.findNodeByIdentifier(node_id)
+        field_cache.setNode(node)
+        node.merge(node_template)
+        field.assignReal(field_cache, coords)
+        node_id += 1
+            
+    #field.setTypeCoordinate(True)
+    
+
+def nodes_to_list(ctxt, numValues=3, coordFieldName='coordinates'):
+    return _nodes_to_list(ctxt, 'nodes', numValues, coordFieldName)
+
+def data_to_list(ctxt, numValues=3, coordFieldName='data_coordinates'):
+    return _nodes_to_list(ctxt, 'datapoints', numValues, coordFieldName)
+
+def list_to_data(ctxt, node_list, coordFieldName='data_coordinates'):
+    _list_to_nodes(ctxt, node_list, 'datapoints', coordFieldName)
 
 def _createDefaultGraphics(ctxt):
     global _defaultGraphicsCreated
