@@ -206,10 +206,7 @@ def _list_to_nodes(ctxt, coordinate_set, nodesetName, coordFieldName='coordinate
     
     fm.beginChange()
 
-    node_template = sNodes.createNodetemplate()
-
     # Set the finite element coordinate field for the nodes to use
-    #node_template.defineField(field)
     cache = fm.createFieldcache()
 
     # Update nodes with new coordinates 
