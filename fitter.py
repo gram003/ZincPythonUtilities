@@ -296,9 +296,9 @@ class Fitter(object):
         dataTemplate.defineField(self._stored_location)
         cache = fm.createFieldcache()
         datapoint = dp_iter.next()
-        print "Projecting data..."
+        if __debug__: print "Projecting data..."
         while datapoint.isValid():
-            print datapoint.getIdentifier(),
+            if __debug__: print datapoint.getIdentifier(),
             cache.setNode(datapoint)
             element, xi = self._found_location.evaluateMeshLocation(cache, 2)
             if element.isValid():
@@ -306,7 +306,7 @@ class Fitter(object):
                 self._stored_location.assignMeshLocation(cache, element, xi)
              
             datapoint = dp_iter.next()
-        print
+        if __debug__: print
         
         del self._projected_coordinates
         del self._error_vector
@@ -378,28 +378,31 @@ class Fitter(object):
         print "self._outside_surface_fit_objective", self._outside_surface_fit_objective
         
         # Diagnostics: print out data point ids
-        dp_iter = data_nodeset_group.createNodeiterator()
-        node = dp_iter.next()
-        while node.isValid():
-            node_id = node.getIdentifier()
-            print node_id,
+        if __debug__: 
+            print "Data point ids"
+            dp_iter = data_nodeset_group.createNodeiterator()
             node = dp_iter.next()
-        print
+            while node.isValid():
+                node_id = node.getIdentifier()
+                print node_id,
+                node = dp_iter.next()
+            print
         
-        # Diagnostics: compute RMS error
-        field = self._outside_surface_fit_objective
-        cache = fm.createFieldcache()
-        dp_iter = data_nodeset_group.createNodeiterator()
-        dp = dp_iter.next()
-        while dp.isValid():
-            cache.setNode(dp)
-            result, outValues = field.evaluateReal(cache, 3)
-            print result, np.sum(outValues)
+            print "RMS error"
+            # Diagnostics: compute RMS error
+            field = self._outside_surface_fit_objective
+            cache = fm.createFieldcache()
+            dp_iter = data_nodeset_group.createNodeiterator()
             dp = dp_iter.next()
+            while dp.isValid():
+                cache.setNode(dp)
+                result, outValues = field.evaluateReal(cache, 3)
+                print result, np.sum(outValues)
+                dp = dp_iter.next()
             
-        # Diagnostics write out node file.
-        # use createStreamInformation to only write out nodes
-        # use region.writeFile()
+            # Diagnostics write out node file.
+            # use createStreamInformation to only write out nodes
+            # use region.writeFile()
 
 
 #         gauss_coordinates = fm.createEmbedded(self._coordinates, self._gauss_location)
@@ -499,8 +502,6 @@ class Fitter(object):
     def load_problem(self, path):
         # file is json
         import json
-        import tools.mesh as mesh
-        #import numpy as np
         
         try:
             with open(path, 'r') as f:
