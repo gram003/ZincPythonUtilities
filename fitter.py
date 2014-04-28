@@ -107,7 +107,7 @@ class Fitter(object):
         mesh.list_to_nodes(self.context(), trans_nodes.tolist(), 'reference_coordinates')
 
         
-    def data_mirror(self, axis):
+    def data_mirror(self, axis, about_centroid=True):
         """
         Reflect the data about its centroid in the plane given by axis
         0 - yz, 1 - xz, 2 - xy
@@ -117,16 +117,19 @@ class Fitter(object):
         t[axis, axis] = -1
         data_list = mesh.data_to_list(self.context(), 3, 'data_coordinates')
         
-        # translate centroid to origin, the centroid of the data is just the mean
-        centroid = np.mean(data_list, axis=0)
-        data_list = data_list - centroid
+        if about_centroid:
+            # translate centroid to origin, the centroid of the data is just the mean
+            centroid = np.mean(data_list, axis=0)
+            data_list = data_list - centroid
         
         # mirror
         a = np.array(data_list)
-        b = a.dot(t)
+        mirrored = a.dot(t)
 
-        # translate it back to original position
-        data_list = b + centroid
+        if about_centroid:
+            # translate it back to original position
+            data_list = mirrored + centroid
+
         mesh.list_to_data(self.context(), data_list.tolist(), 'data_coordinates')
         
 
