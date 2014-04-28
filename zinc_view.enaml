@@ -1,8 +1,10 @@
 
 from enaml.widgets.api import (
     MainWindow, ToolBar, Action, ActionGroup, Container, MenuBar, Menu,
-    FileDialogEx, DockPane, PushButton, RadioButton, GroupBox, ObjectCombo
+    FileDialogEx, DockPane, PushButton, RadioButton, GroupBox, ObjectCombo,
+    StatusBar
 )
+
 
 from enaml.layout.api import vbox, hbox, spacer
 
@@ -88,31 +90,73 @@ enamldef MyMenuBar(MenuBar): mb:
     Menu:
         title = '&View'
         Action:
-            text = 'Reset'
+            text = "View all"
             triggered :: controller.view_all() 
+        Action:
+            separator = True
+        ActionGroup:
+            Action:
+                text = 'Reference'
+                triggered :: controller.view_reference()
+                checkable = True 
+            Action:
+                text = 'Fitted'
+                triggered :: controller.view_fitted() 
+                checkable = True
+                checked = True
 
-
-enamldef RegistrationDockPane(DockPane):
+enamldef RegistrationManualDockPane(DockPane):
     attr controller = parent.controller
     title = "Registration"
     Container:
-        constraints = [
-                       vbox(hbox(mirror, axis),
-                            auto,
-                            manual)
-        ]
-        PushButton: mirror:
-            text = 'Mirror'
-            clicked :: controller.mirror(axis.selected)
-        ObjectCombo: axis:
-            items = ['x', 'y', 'z']
-            hug_width = 'ignore'
+        padding = 0
+#         constraints = [
+#                        vbox(hbox(mirror, axis),
+#                             auto,
+#                             manual)
+#         ]
+        GroupBox:
+            padding = 0
+            constraints = [
+                            hbox(mirror, axis)
+                           ]
+            title = 'Data'
+            PushButton: mirror:
+                text = 'Mirror'
+                clicked :: controller.mirror(axis.selected)
+                hug_width = 'required'
+                tool_tip = "Mirror data about centroid"
+            ObjectCombo: axis:
+                items = ['x', 'y', 'z']
+                hug_width = 'required'
             
+        GroupBox:
+            constraints = [
+                            vbox(ag, manual)
+                           ]
+            padding = 0
+            title = "Manual Registration"
+            #flat = True
+            GroupBox: ag:
+                # How do I provide some affordance about this. E.g how many points to select
+                RadioButton: sel_data:
+                    text = "Sel data"
+                    clicked :: None 
+                RadioButton: sel_nodes:
+                    text = "Sel nodes"
+                    clicked :: None 
+            PushButton: manual:
+                text = 'Register'
+                clicked :: None
+            
+enamldef RegistrationAutoDockPane(DockPane):
+    attr controller = parent.controller
+    title = "Auto Registration"
+    Container:
         PushButton: auto:
-            text = 'Automatic'
-            clicked ::controller.register_automatic()
-        PushButton: manual:
-            text = 'Manual'
+            text = 'Register'
+            clicked :: controller.register_automatic()
+
 enamldef FitDockPane(DockPane):
     title = "Fit"
     Container:
@@ -128,19 +172,29 @@ enamldef FitDockPane(DockPane):
     #             Action:
     #                 checkable = True
                     text = 'Project'
+                    clicked :: controller.project()
+                    tool_tip = "Project the selected data onto the selected faces"
             PushButton:
     #             Action:
     #                 checkable = True
                     text = 'Fit'
+                    clicked :: controller.fit()
+                    tool_tip = "Fit the selected faces to the selected data"
             
 enamldef MyToolBar(ToolBar):
     attr controller = parent.controller
     alias ag: ag
     ActionGroup: ag:
-        alias registration
-        Action: registration:
+        alias auto_registration
+        Action: auto_registration:
             checkable = True
-            text = 'Reg'
+            text = 'RA'
+            tool_tip = "Automatic registration"
+        alias manual_registration
+        Action: manual_registration:
+            checkable = True
+            text = 'RM'
+            tool_tip = "Manual registration"
         alias fit
         Action: fit:
             checkable = True
@@ -152,9 +206,9 @@ enamldef MyToolBar(ToolBar):
 #             triggered :: controller.on_select_faces()
         Action:
             separator = True
-#     Action:
-#         checkable = True
-#         text = 'Checkable'
+    Action:
+        text = 'View all'
+        triggered :: controller.view_all()
 #     Action:
 #         checkable = True
 #         text = 'ToolBar'
@@ -180,9 +234,12 @@ enamldef Main(MainWindow): main:
         pass
 #     Conditional:
 #         condition << bool(tb.data_toolbox)
-    RegistrationDockPane: reg_pane:
+    RegistrationManualDockPane: reg_man_pane:
         floating = False
-        visible << tb.ag.registration.checked
+        visible << tb.ag.manual_registration.checked
+    RegistrationAutoDockPane: reg_auto_pane:
+        floating = False
+        visible << tb.ag.auto_registration.checked
     FitDockPane: fit_pane:
         floating = False
         visible << tb.ag.fit.checked
