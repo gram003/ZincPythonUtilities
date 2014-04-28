@@ -204,12 +204,10 @@ def _list_to_nodes(ctxt, coordinate_set, nodesetName, coordFieldName='coordinate
     sNodes = fm.findNodesetByName(nodesetName)
     field = fm.findFieldByName(coordFieldName)
     
+    # Update nodes with new coordinates 
     fm.beginChange()
 
-    # Set the finite element coordinate field for the nodes to use
     cache = fm.createFieldcache()
-
-    # Update nodes with new coordinates 
     node_id = 1
     for coords in coordinate_set:
         node = sNodes.findNodeByIdentifier(node_id)
