@@ -44,6 +44,8 @@ class Fitter(object):
         self._error_vector = None
         self._graphicsProjectedPoints = None
         self._graphicsErrorLines = None
+
+        self._fittedVisible = True
         
     def context(self):
         return self._context
@@ -81,7 +83,11 @@ class Fitter(object):
 #                                                                    Sceneviewer.STEREO_MODE_DEFAULT)
 #         
 #         scene_viewer.viewAll()
-        
+
+        self.show_reference()
+        self.show_fitted()
+
+
     def register_automatic(self):
         # Use Ju's ICP
         # extract nodes into a numpy array
@@ -438,18 +444,36 @@ class Fitter(object):
     
     def _setGraphicsCoordinates(self, coordinate_field):
         scene = self.context().getDefaultRegion().getScene()
+        scene.beginChange()
         for name in ['nodes', 'lines', 'surfaces']:
             graphics = scene.findGraphicsByName(name)
-            graphics. setCoordinateField(coordinate_field)
+            graphics.setCoordinateField(coordinate_field)
+        scene.endChange()
         
     def show_reference(self):
         self._setGraphicsCoordinates(self._reference_coordinates)
+        self._fittedVisible = False
 
 #         self._zw.updateGL() # shouldn't be necessary
         
     def show_fitted(self):
         self._setGraphicsCoordinates(self._coordinates)
+        self._fittedVisible = True
         #self._zw.updateGL()
+        
+    # This is a hack to force the view to update. It should not be
+    # necessary but I don't know the right way to do it.
+    def update_visible(self):
+        if self._fittedVisible:
+            self.show_reference()
+            self.show_fitted()
+        else:
+            self.show_fitted()
+            self.show_reference()
+
+        scene = self.context().getDefaultRegion().getScene()
+        graphics = scene.findGraphicsByName('datapoints')
+        graphics.setCoordinateField(self._data_coordinates)
         
     def load_problem(self, path):
         # file is json
