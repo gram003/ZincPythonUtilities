@@ -221,12 +221,27 @@ def _list_to_nodes(ctxt, coordinate_set, nodesetName, coordFieldName='coordinate
     
 
 def nodes_to_list(ctxt, numValues=3, coordFieldName='coordinates'):
+    """
+    Return all nodes as a Python list
+    """
     return _nodes_to_list(ctxt, 'nodes', numValues, coordFieldName)
 
+def list_to_nodes(ctxt, node_list, coordFieldName='coordinates'):
+    """
+    Generate nodes from a list of coordinates
+    """
+    _list_to_nodes(ctxt, node_list, 'nodes', coordFieldName)
+
 def data_to_list(ctxt, numValues=3, coordFieldName='data_coordinates'):
+    """
+    Return all datapoints as a Python list
+    """
     return _nodes_to_list(ctxt, 'datapoints', numValues, coordFieldName)
 
 def list_to_data(ctxt, node_list, coordFieldName='data_coordinates'):
+    """
+    Generate datapoints from a list of coordinates
+    """
     _list_to_nodes(ctxt, node_list, 'datapoints', coordFieldName)
 
 def _createDefaultGraphics(ctxt):
