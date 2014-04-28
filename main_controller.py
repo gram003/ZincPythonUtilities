@@ -8,10 +8,14 @@ import sys
 def funcname():
     return sys._getframe(1).f_code.co_name
 
+
+#from atom.api import Atom, Unicode, Range, Bool, Float, observe
+
 class MainController(object):
     '''
     classdocs
     '''
+        
     def __init__(self, model=None):
         '''
         Constructor
@@ -65,6 +69,16 @@ class MainController(object):
         self._zw.viewAll()
     
     #
+    # View type
+    #
+    
+    def view_reference(self):
+        self._model.show_reference()
+    
+    def view_fitted(self):
+        self._model.show_fitted()
+
+    #
     # Selection mode
     #
     
@@ -87,8 +101,25 @@ class MainController(object):
         convert = {'x': 0, 'y': 1, 'z': 2}
         self._model.data_mirror(convert[axis])
         #self.view_all()
+        self._model.update_visible()
     
     def register_automatic(self):
-        print funcname()
+        #print funcname()
         self._model.register_automatic()
+        # This should not be required, but the view doesn't change unless
+        # it is called.
+        self._model.update_visible()
         
+    def register_manual(self):
+        # least squares fit between 3 or more points on each body
+        pass
+    
+    #
+    # Fitting
+    #
+    
+    def project(self):
+        self._model.project()
+
+    def fit(self):
+        self._model.fit()
