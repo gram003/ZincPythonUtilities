@@ -1,4 +1,5 @@
 import sys
+from functools import partial
 
 from opencmiss.zinc.field import Field
 from opencmiss.zinc.glyph import Glyph
@@ -84,6 +85,13 @@ class Fitter(object):
 
 
     def register_automatic(self, translate=True, rotate=True, scale=True):
+        
+        undoFitted = self.create_fitted_nodes_undo()
+        undoReference = self.create_reference_nodes_undo()
+        def restore():
+            undoFitted()
+            undoReference()
+
         # Use Ju's ICP
         import ICP
         # extract nodes into a numpy array
@@ -106,6 +114,33 @@ class Fitter(object):
         mesh.list_to_nodes(self.context(), trans_nodes.tolist(), 'coordinates')
         mesh.list_to_nodes(self.context(), trans_nodes.tolist(), 'reference_coordinates')
 
+        return restore
+    
+    def create_data_undo(self):
+        # save the original data state
+        data_list = mesh.data_to_list(self.context(), 3, 'data_coordinates')
+        
+        def restore(data):
+            mesh.list_to_data(self.context(), data, 'data_coordinates')
+        undo = partial(restore, data_list)
+        return undo
+        
+    def _create_nodes_undo(self, coordinateFieldName):
+        # save the nodes state
+        nodes = mesh.nodes_to_list(self.context(), 3, coordinateFieldName)
+        
+        def restore(data):
+            mesh.list_to_nodes(self.context(), nodes, coordinateFieldName)
+        undo = partial(restore, nodes)
+        return undo
+
+    def create_fitted_nodes_undo(self):
+        return self._create_nodes_undo("coordinates")
+
+    def create_reference_nodes_undo(self):
+        return self._create_nodes_undo("reference_coordinates")
+        
+
         
     def data_mirror(self, axis, about_centroid=True):
         """
@@ -113,10 +148,13 @@ class Fitter(object):
         0 - yz, 1 - xz, 2 - xy
         """
         
+        undo = self.create_data_undo()
+        
+        data_list = mesh.data_to_list(self.context(), 3, 'data_coordinates')
+                    
         t = np.identity(3)
         t[axis, axis] = -1
-        data_list = mesh.data_to_list(self.context(), 3, 'data_coordinates')
-        
+                
         if about_centroid:
             # translate centroid to origin, the centroid of the data is just the mean
             centroid = np.mean(data_list, axis=0)
@@ -133,6 +171,8 @@ class Fitter(object):
             data_list = mirrored
 
         mesh.list_to_data(self.context(), data_list.tolist(), 'data_coordinates')
+        
+        return undo
 
 
     def project(self):
@@ -611,4 +651,12 @@ class Fitter(object):
 #         
 #         self.meshLoaded()
 
+    def SaveState(self):
+        state = None
+        region.writeFile("state.exregi")
+
+        return state
+        
+    def RestoreState(self, state):
+        pass
         

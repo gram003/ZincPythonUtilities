@@ -11,6 +11,7 @@ class MainController(object):
         Constructor
         '''
         self._model = model
+        self._undoStack = list()
         
     # The model can't be passed to the constructor because of the
     # initialisation order so this method is provided instead.    
@@ -51,6 +52,18 @@ class MainController(object):
         self._model.save_problem(path)
         
     #
+    # Edit menu
+    #
+
+    def undo(self):
+        try:
+            command = self._undoStack.pop()
+        except IndexError:
+            return
+
+        command()
+        
+    #
     # View menu
     #
     
@@ -84,13 +97,14 @@ class MainController(object):
     #
 
     def mirror(self, axis):
-        print funcname(), axis
         convert = {'x': 0, 'y': 1, 'z': 2}
-        self._model.data_mirror(convert[axis], about_centroid=True)
+
+        undo = self._model.data_mirror(convert[axis], about_centroid=True)
+        self._undoStack.append(undo)
 
     def register_automatic(self, translate, rotate, scale):
-        print funcname(), translate, rotate, scale
-        self._model.register_automatic(translate, rotate, scale)
+        undo = self._model.register_automatic(translate, rotate, scale)
+        self._undoStack.append(undo)
 
     def register_manual(self):
         # least squares fit between 3 or more points on each body

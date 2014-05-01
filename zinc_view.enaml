@@ -61,7 +61,7 @@ enamldef MyMenuBar(MenuBar): mb:
         title = '&Edit'
         Action:
             text = 'Undo\tCtrl+Z'
-            triggered :: print 'Undo triggered'
+            triggered :: controller.undo()
         Action:
             text = 'Redo\tCtrl+R'
             triggered :: print 'Redo triggered'
@@ -159,6 +159,7 @@ enamldef RegistrationManualDockPane(DockPane):
             CheckBox: scale:
                 text = "scale"
                 checked = True
+                # FIXME: add seperate scaling for each axis (use radio buttons to select single or axiswise scaling)
             PushButton: auto:
                 text = 'Register'
                 clicked :: controller.register_automatic(translate.checked, rotate.checked, scale.checked)
