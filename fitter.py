@@ -8,6 +8,7 @@ from opencmiss.zinc.field import Field, FieldFindMeshLocation, FieldGroup
 from opencmiss.zinc.optimisation import Optimisation
 
 import tools.mesh as mesh
+from tools.utilities import get_scene, get_field_module
 
 # for diagnostics
 import numpy as np
@@ -84,8 +85,8 @@ class Fitter(object):
 #         
 #         scene_viewer.viewAll()
 
-        self.show_reference()
-        self.show_fitted()
+        self.show_reference(True)
+        self.show_fitted(True)
 
 
     def register_automatic(self):
@@ -311,8 +312,8 @@ class Fitter(object):
             datapoint = dp_iter.next()
         if __debug__: print
         
-        del self._projected_coordinates
-        del self._error_vector
+        # del self._projected_coordinates
+        # del self._error_vector
         self._projected_coordinates = fm.createFieldEmbedded(self._coordinates, self._stored_location)
         self._error_vector = fm.createFieldSubtract(self._projected_coordinates, self._data_coordinates)
         
@@ -325,41 +326,36 @@ class Fitter(object):
 
         default_region = self.context().getDefaultRegion()
         # Get the scene for the default region to create the visualisation in.
-        scene = default_region.getScene()
         
-        # We use the beginChange and endChange to wrap any immediate changes and will
-        # streamline the rendering of the scene.
-        scene.beginChange()
+        with get_scene(default_region) as scene:
         
-        # projected points
-        if not self._graphicsProjectedPoints is None:
-            scene.removeGraphics(self._graphicsProjectedPoints)
-        proj = scene.createGraphicsPoints()
-        # save graphics object so that it can be destroyed later
-        self._graphicsProjectedPoints = proj
-        proj.setFieldDomainType(Field.DOMAIN_TYPE_DATAPOINTS)
-        proj.setCoordinateField(self._projected_coordinates)
-        # consider only the selected data points group
-        proj.setSubgroupField(self._gnfData)
-        proj.setMaterial(blue)
-        attr = proj.getGraphicspointattributes()
-        attr.setGlyphShapeType(Glyph.SHAPE_TYPE_SPHERE)
-        attr.setBaseSize([1])
-        
-        # error lines
-        if not self._graphicsErrorLines is None:
-            scene.removeGraphics(self._graphicsErrorLines)
-        err = scene.createGraphicsPoints()
-        self._graphicsErrorLines = err
-        err.setFieldDomainType(Field.DOMAIN_TYPE_DATAPOINTS)
-        err.setCoordinateField(self._projected_coordinates)
-        err.setSubgroupField(self._gnfData)
-        attr = err.getGraphicspointattributes()
-        attr.setGlyphShapeType(Glyph.SHAPE_TYPE_LINE)
-        attr.setOrientationScaleField(self._error_vector)
-        attr.setScaleFactors([-1, 0, 0])
-        
-        scene.endChange()
+            # projected points
+            if not self._graphicsProjectedPoints is None:
+                scene.removeGraphics(self._graphicsProjectedPoints)
+            proj = scene.createGraphicsPoints()
+            # save graphics object so that it can be destroyed later
+            self._graphicsProjectedPoints = proj
+            proj.setFieldDomainType(Field.DOMAIN_TYPE_DATAPOINTS)
+            proj.setCoordinateField(self._projected_coordinates)
+            # consider only the selected data points group
+            proj.setSubgroupField(self._gnfData)
+            proj.setMaterial(blue)
+            attr = proj.getGraphicspointattributes()
+            attr.setGlyphShapeType(Glyph.SHAPE_TYPE_SPHERE)
+            attr.setBaseSize([1])
+            
+            # error lines
+            if not self._graphicsErrorLines is None:
+                scene.removeGraphics(self._graphicsErrorLines)
+            err = scene.createGraphicsPoints()
+            self._graphicsErrorLines = err
+            err.setFieldDomainType(Field.DOMAIN_TYPE_DATAPOINTS)
+            err.setCoordinateField(self._projected_coordinates)
+            err.setSubgroupField(self._gnfData)
+            attr = err.getGraphicspointattributes()
+            attr.setGlyphShapeType(Glyph.SHAPE_TYPE_LINE)
+            attr.setOrientationScaleField(self._error_vector)
+            attr.setScaleFactors([-1, 0, 0])
         
     def fit(self):
         
@@ -445,7 +441,7 @@ class Fitter(object):
         self._opt.optimise()
         print funcname(), "finished optimisation"
         # FIXME: generate an event here
-        #self._zw.updateGL()
+        # self._zw.updateGL()
         print self._opt.getSolutionReport()
 
         # Diagnostics: compute RMS error
@@ -466,41 +462,41 @@ class Fitter(object):
         
         # FIXME: Not sure why this is necessary, but the graphics don't
         # update if only show_fitted is called.
-        self.show_reference()
-        self.show_fitted()
+        # self.show_reference()
+        # self.show_fitted()
     
     def _setGraphicsCoordinates(self, coordinate_field):
-        scene = self.context().getDefaultRegion().getScene()
-        scene.beginChange()
-        for name in ['nodes', 'lines', 'surfaces']:
-            graphics = scene.findGraphicsByName(name)
-            graphics.setCoordinateField(coordinate_field)
-        scene.endChange()
+        with get_scene(self.context().getDefaultRegion()) as scene:
+            for name in ['nodes', 'lines', 'surfaces']:
+                graphics = scene.findGraphicsByName(name)
+                graphics.setCoordinateField(coordinate_field)
         
-    def show_reference(self):
-        self._setGraphicsCoordinates(self._reference_coordinates)
-        self._fittedVisible = False
-
-#         self._zw.updateGL() # shouldn't be necessary
+    def show_reference(self, state):
+#         self._setGraphicsCoordinates(self._reference_coordinates)
+#         self._fittedVisible = False
         
-    def show_fitted(self):
-        self._setGraphicsCoordinates(self._coordinates)
-        self._fittedVisible = True
-        #self._zw.updateGL()
+        for g in self._reference_graphics + self._reference_node_graphics:
+            g.setVisibilityFlag(state)
         
-    # This is a hack to force the view to update. It should not be
-    # necessary but I don't know the right way to do it.
-    def update_visible(self):
-        if self._fittedVisible:
-            self.show_reference()
-            self.show_fitted()
-        else:
-            self.show_fitted()
-            self.show_reference()
-
-        scene = self.context().getDefaultRegion().getScene()
-        graphics = scene.findGraphicsByName('datapoints')
-        graphics.setCoordinateField(self._data_coordinates)
+    def show_fitted(self, state):
+#         self._setGraphicsCoordinates(self._coordinates)
+#         self._fittedVisible = True
+        for g in self._fitted_graphics + self._fitted_node_graphics:
+            g.setVisibilityFlag(state)
+        
+#     # This is a hack to force the view to update. It should not be
+#     # necessary but I don't know the right way to do it.
+#     def update_visible(self):
+#         if self._fittedVisible:
+#             self.show_reference()
+#             self.show_fitted()
+#         else:
+#             self.show_fitted()
+#             self.show_reference()
+# 
+#         scene = self.context().getDefaultRegion().getScene()
+#         graphics = scene.findGraphicsByName('datapoints')
+#         graphics.setCoordinateField(self._data_coordinates)
         
     def load_problem(self, path):
         # file is json
@@ -544,9 +540,6 @@ class Fitter(object):
                                    surfaces_name='surfaces',
                                    lines_name='lines',
                                    coordinate_field_name=coords)
-         
-        # FIXME: generate an event that could be used to call this
-        #self._zw.viewAll()
         
         self.meshLoaded()
         
