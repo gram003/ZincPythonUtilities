@@ -1,15 +1,5 @@
-'''
-Created on 8/04/2014
 
-@author: glenn
-'''
-# for diagnostics
-import sys
-def funcname():
-    return sys._getframe(1).f_code.co_name
-
-
-#from atom.api import Atom, Unicode, Range, Bool, Float, observe
+from tools.diagnostics import funcname
 
 class MainController(object):
     '''
@@ -26,7 +16,6 @@ class MainController(object):
     # initialisation order so this method is provided instead.    
     def setFitter(self, fitter):
         self._model = fitter
-        #self._zw = fitter.widget()
          
     def setZincWidget(self, zw):
         self._zw = zw
@@ -72,30 +61,28 @@ class MainController(object):
     # View type
     #
     
-    def view_reference(self):
-        self._model.show_reference()
+    def view_reference(self, state):
+        self._model.show_reference(state)
     
-    def view_fitted(self):
-        self._model.show_fitted()
+    def view_fitted(self, state):
+        self._model.show_fitted(state)
 
     #
     # Selection mode
     #
-    
-    def on_select_data(self):
-        print funcname()
+
+    def select_data(self):
         self._zw.setSelectModeData()
         self._zw.setSelectionModeAdditive(True)
-        
-    def on_select_faces(self):
-        print funcname()
+
+    def select_faces(self):
         self._zw.setSelectModeElement()
         self._zw.setSelectionModeAdditive(True)
-    
+
     #
     # Registration
     #
-    
+
     def mirror(self, axis):
         print funcname(), axis
         convert = {'x': 0, 'y': 1, 'z': 2}
