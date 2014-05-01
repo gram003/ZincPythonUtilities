@@ -2,16 +2,14 @@
 from enaml.widgets.api import (
     MainWindow, ToolBar, Action, ActionGroup, Container, MenuBar, Menu,
     FileDialogEx, DockPane, PushButton, RadioButton, GroupBox, ObjectCombo,
-    StatusBar
+    StatusBar, StatusItem, CheckBox, Label
 )
-
 
 from enaml.layout.api import vbox, hbox, spacer
 
 from enaml_zinc_widget import EZincWidget
 
-#from main_controller import MainController
-#controller = MainController()
+from opencmiss.zinc.context import Context
 
 enamldef MyMenuBar(MenuBar): mb:
     attr path : unicode = u""
@@ -94,16 +92,17 @@ enamldef MyMenuBar(MenuBar): mb:
             triggered :: controller.view_all() 
         Action:
             separator = True
-        ActionGroup:
-            Action:
-                text = 'Reference'
-                triggered :: controller.view_reference()
-                checkable = True 
-            Action:
-                text = 'Fitted'
-                triggered :: controller.view_fitted() 
-                checkable = True
-                checked = True
+#         ActionGroup:
+        Action:
+            text = 'Reference'
+            triggered :: controller.view_reference(checked)
+            checkable = True 
+            checked = True
+        Action:
+            text = 'Fitted'
+            triggered :: controller.view_fitted(checked) 
+            checkable = True
+            checked = True
 
 enamldef RegistrationManualDockPane(DockPane):
     attr controller = parent.controller
@@ -241,11 +240,18 @@ enamldef MyToolBar(ToolBar):
 #         text = 'Fit'
 #         tool_tip = text
 
+enamldef MyStatusBar(StatusBar):
+    StatusItem:
+        Label:
+            text = "Status"
+
 enamldef Main(MainWindow): main:
     title = 'Zinc Widget'
     initial_size = (800,600)
     attr controller
     MyMenuBar:
+        pass
+    MyStatusBar:
         pass
     MyToolBar: tb:
         pass
@@ -262,9 +268,10 @@ enamldef Main(MainWindow): main:
         visible << tb.ag.fit.checked
     Container:
         padding = 0
-                
+ 
         EZincWidget:
             name = "ZincWidget"
+            context = Context("foo")
             # need to create an event that gets called when it is created
-            
+
     closed :: controller.on_closed()

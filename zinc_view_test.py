@@ -22,13 +22,16 @@ with enaml.imports():
 from enaml.qt.qt_application import QtApplication
 
 from fitter import Fitter
-
+from opencmiss.zinc.context import Context
 from main_controller import MainController
 controller = MainController()
 
 app = QtApplication()
 
 view = Main(title="Zinc Fitting", controller=controller)
+
+ezw = view.find("ZincWidget")
+zw = ezw.get_widget()
 
 view.show()
 
@@ -39,14 +42,9 @@ view.show()
 ezw = view.find("ZincWidget")
 zw = ezw.get_widget()
 context = ezw.get_widget().getContext()
-print "context", context
 
-# Fitter needs the ZincWidget so that it can get the selection group.
-# FIXME: This is not ideal it would be better if the selection group could
-# be stored in the zinc library. 
 f = Fitter(context)
 controller.setFitter(f)
 controller.setZincWidget(zw)
-
 
 app.start()
