@@ -20,6 +20,8 @@ from opencmiss.zinc.field import Field
 from opencmiss.zinc.glyph import Glyph
 from opencmiss.zinc.status import OK
 
+import tools.graphics as graphics
+
 # mapping from qt to zinc start
 # Create a button map of Qt mouse buttons to Zinc input buttons
 button_map = {QtCore.Qt.LeftButton: Sceneviewerinput.BUTTON_TYPE_LEFT,
@@ -196,7 +198,7 @@ class ZincWidget(QtOpenGL.QGLWidget):
         # Using a really cheap workaround for creating a rubber band for selection.
         # This will create strange visual artifacts when using two scene viewers looking at
         # the same scene.  Waiting on a proper solution in the API.
-        self.defineStandardGlyphs()
+        graphics.defineStandardGlyphs(self._context)
         self._selectionBox = scene.createGraphicsPoints()
         self._selectionBox.setScenecoordinatesystem(SCENECOORDINATESYSTEM_WINDOW_PIXEL_TOP_LEFT)
         attributes = self._selectionBox.getGraphicspointattributes()
