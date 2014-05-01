@@ -135,7 +135,7 @@ enamldef RegistrationManualDockPane(DockPane):
                             vbox(ag, manual)
                            ]
             padding = 0
-            title = "Manual Registration"
+            title = "Manual"
             #flat = True
             GroupBox: ag:
                 # How do I provide some affordance about this. E.g how many points to select
@@ -148,14 +148,29 @@ enamldef RegistrationManualDockPane(DockPane):
             PushButton: manual:
                 text = 'Register'
                 clicked :: None
+
+        GroupBox:
+            title = 'Automatic'
+            CheckBox: translate:
+                text = "translate"
+                checked = True
+            CheckBox: rotate:
+                text = "rotate"
+                checked = True
+            CheckBox: scale:
+                text = "scale"
+                checked = True
+            PushButton: auto:
+                text = 'Register'
+                clicked :: controller.register_automatic(translate.checked, rotate.checked, scale.checked)
             
-enamldef RegistrationAutoDockPane(DockPane):
-    attr controller = parent.controller
-    title = "Auto Registration"
-    Container:
-        PushButton: auto:
-            text = 'Register'
-            clicked :: controller.register_automatic()
+# enamldef RegistrationAutoDockPane(DockPane):
+#     attr controller = parent.controller
+#     title = "Auto Registration"
+#     Container:
+#         PushButton: auto:
+#             text = 'Register'
+#             clicked :: controller.register_automatic()
 
 enamldef FitDockPane(DockPane):
     title = "Fit"
@@ -164,9 +179,11 @@ enamldef FitDockPane(DockPane):
             RadioButton:
                 checkable = True
                 text = 'Select data'
+                clicked :: controller.select_data()
             RadioButton:
                 checkable = True
                 text = 'Select faces'
+                clicked :: controller.select_faces()
         GroupBox:
             PushButton:
     #             Action:
@@ -185,16 +202,16 @@ enamldef MyToolBar(ToolBar):
     attr controller = parent.controller
     alias ag: ag
     ActionGroup: ag:
-        alias auto_registration
-        Action: auto_registration:
-            checkable = True
-            text = 'RA'
-            tool_tip = "Automatic registration"
+#         alias auto_registration
+#         Action: auto_registration:
+#             checkable = True
+#             text = 'RA'
+#             tool_tip = "Automatic registration"
         alias manual_registration
         Action: manual_registration:
             checkable = True
-            text = 'RM'
-            tool_tip = "Manual registration"
+            text = 'Reg'
+            tool_tip = "Registration tools"
         alias fit
         Action: fit:
             checkable = True
@@ -237,9 +254,9 @@ enamldef Main(MainWindow): main:
     RegistrationManualDockPane: reg_man_pane:
         floating = False
         visible << tb.ag.manual_registration.checked
-    RegistrationAutoDockPane: reg_auto_pane:
-        floating = False
-        visible << tb.ag.auto_registration.checked
+#     RegistrationAutoDockPane: reg_auto_pane:
+#         floating = False
+#         visible << tb.ag.auto_registration.checked
     FitDockPane: fit_pane:
         floating = False
         visible << tb.ag.fit.checked

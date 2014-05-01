@@ -99,17 +99,12 @@ class MainController(object):
     def mirror(self, axis):
         print funcname(), axis
         convert = {'x': 0, 'y': 1, 'z': 2}
-        self._model.data_mirror(convert[axis])
-        #self.view_all()
-        self._model.update_visible()
-    
-    def register_automatic(self):
-        #print funcname()
-        self._model.register_automatic()
-        # This should not be required, but the view doesn't change unless
-        # it is called.
-        self._model.update_visible()
-        
+        self._model.data_mirror(convert[axis], about_centroid=True)
+
+    def register_automatic(self, translate, rotate, scale):
+        print funcname(), translate, rotate, scale
+        self._model.register_automatic(translate, rotate, scale)
+
     def register_manual(self):
         # least squares fit between 3 or more points on each body
         pass

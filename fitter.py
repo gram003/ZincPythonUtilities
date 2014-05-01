@@ -83,20 +83,25 @@ class Fitter(object):
         self.show_fitted(True)
 
 
-    def register_automatic(self):
+    def register_automatic(self, translate=True, rotate=True, scale=True):
         # Use Ju's ICP
         import ICP
         # extract nodes into a numpy array
         node_list = mesh.nodes_to_list(self.context(), 3, 'coordinates')
-        #print node_list
+        # print node_list
         n = np.array(node_list)
         
         data_list = mesh.data_to_list(self.context(), 3, 'data_coordinates')
-        #print data_list
+        # print data_list
         d = np.array(data_list)
         
+        # FIXME: This uses all the nodes including internal nodes. It
+        # would be better to use only the external nodes.
+        
         # move the nodes near to the data
-        T, trans_nodes = ICP.fitDataRigidEPDP(n, d)
+        T, trans_nodes = ICP.fitDataEPDP(n, d, translate=translate, rotate=rotate, scale=scale)
+        # T, trans_nodes = ICP.fitDataRigidEPDP(n, d)
+        # T, trans_nodes = ICP.fitDataRigidScaleEPDP(n, d)
         
         mesh.list_to_nodes(self.context(), trans_nodes.tolist(), 'coordinates')
         mesh.list_to_nodes(self.context(), trans_nodes.tolist(), 'reference_coordinates')
