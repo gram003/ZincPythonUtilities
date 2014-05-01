@@ -13,9 +13,9 @@ from opencmiss.zinc.context import Context
 import tools.mesh as mesh
 
 try:
-    from PySide import QtGui, QtCore
-except ImportError:
     from PyQt4 import QtGui, QtCore
+except ImportError:
+    from PySide import QtGui, QtCore
 
 from zlab_ui import Ui_ZlabDlg
 
