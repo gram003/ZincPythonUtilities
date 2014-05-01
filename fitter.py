@@ -8,6 +8,7 @@ from opencmiss.zinc.field import Field, FieldFindMeshLocation, FieldGroup
 from opencmiss.zinc.optimisation import Optimisation
 
 import tools.mesh as mesh
+import tools.graphics as graphics
 from tools.utilities import get_scene, get_field_module
 
 # for diagnostics
@@ -531,15 +532,24 @@ class Fitter(object):
         mesh.linear_mesh(ctxt, nodes, elems,
                          coordinate_field_name=ref_coords, merge=True)
 
-        # The datapoint graphics don't appear until the rest of the mesh is loaded,
-        # FIXME: Not sure why that is.
-        mesh.createDatapointGraphics(ctxt, datapoints_name='data')
-        mesh.createNodeGraphics(ctxt, nodes_name='nodes',
+        self._datapoint_graphics = graphics.createDatapointGraphics(ctxt, datapoints_name='data')
+        
+        self._fitted_node_graphics = graphics.createNodeGraphics(ctxt, nodes_name='nodes',
                                  coordinate_field_name=coords)
-        mesh.createSurfaceGraphics(ctxt,
+        
+        self._fitted_graphics = graphics.createSurfaceGraphics(ctxt,
                                    surfaces_name='surfaces',
                                    lines_name='lines',
                                    coordinate_field_name=coords)
+        
+        self._reference_node_graphics = graphics.createNodeGraphics(ctxt, nodes_name='nodes',
+                                 coordinate_field_name=coords)
+
+        self._reference_graphics = graphics.createSurfaceGraphics(ctxt,
+                                   surfaces_name='ref_surfaces',
+                                   lines_name='ref_lines',
+                                   coordinate_field_name=ref_coords,
+                                   colour="green")
         
         self.meshLoaded()
         
