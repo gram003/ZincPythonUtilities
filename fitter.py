@@ -129,11 +129,12 @@ class Fitter(object):
         if about_centroid:
             # translate it back to original position
             data_list = mirrored + centroid
+        else:
+            data_list = mirrored
 
         mesh.list_to_data(self.context(), data_list.tolist(), 'data_coordinates')
-        
 
-        
+
     def project(self):
         # project selected data points onto selected faces
 #         self._create2DElementGroup(root_region)
@@ -436,6 +437,7 @@ class Fitter(object):
         print funcname(), "starting optimisation"
         self._opt.optimise()
         print funcname(), "finished optimisation"
+
         # FIXME: generate an event here
         print self._opt.getSolutionReport()
 
