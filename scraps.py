@@ -43,3 +43,24 @@ def create3DFiniteElement(self, field_module, finite_element_field, node_coordin
         element_template.setNode(i + 1, node)
 
     mesh.defineElement(-1, element_template)
+
+
+# Diagnostics for data points    
+#         region = self.context().getDefaultRegion()
+#         scene = region.getScene()
+# #         dp = scene.createGraphicsPoints()
+# #         dp.setFieldDomainType(Field.DOMAIN_TYPE_DATAPOINTS)
+#         fm = region.getFieldmodule()
+# #         for i in xrange(10):
+# #             fm.endChange()
+#         coordinateField = fm.findFieldByName('data_coordinates')
+# #         dp.setCoordinateField(coordinateField)
+# #         gr = scene.getFirstGraphics()
+# #         while gr.isValid():
+# #             name = gr.getName()
+# #             if name == 'data':
+# #                 gr.setCoordinateField(Field())
+# #                 gr.setCoordinateField(coordinateField)
+# #             dt = gr.getFieldDomainType()
+# #             print(name, dt, gr.getCoordinateField().getName())
+# #             gr = scene.getNextGraphics(gr)
