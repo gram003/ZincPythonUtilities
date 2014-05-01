@@ -1,6 +1,5 @@
 import sys
 
-from opencmiss.zinc.context import Context
 from opencmiss.zinc.field import Field
 from opencmiss.zinc.glyph import Glyph
 from opencmiss.zinc.element import Element, Elementbasis
@@ -35,13 +34,10 @@ class Fitter(object):
     Nodes = 2
     Data = 4
     
-    def __init__(self, context): #zincWidget):
+    def __init__(self, context):
         object.__init__(self)
         
-#         self._context = Context("Fit")
-#         self._context = zincWidget.getContext() 
         self._context = context 
-        #self._zw = zincWidget
         self._projected_coordinates = None
         self._error_vector = None
         self._graphicsProjectedPoints = None
@@ -51,9 +47,6 @@ class Fitter(object):
         
     def context(self):
         return self._context
-    
-#     def widget(self):
-#         return self._zw
     
     def region(self):
         return self._context.getDefaultRegion()
@@ -167,9 +160,6 @@ class Fitter(object):
         print "self._mesh2d", self._mesh2d
         
         # get the selection field        
-        # scene = region.getScene()
-#         selectionGroup = scene.getSelectionField()
-        #self._selectionGroup = self._zw.getSelectionGroup()
         self._selectionGroup = fm.findFieldByName("SelectionGroup").castGroup()
         
         # copy the selected faces to the _outsideMesh group
@@ -442,7 +432,6 @@ class Fitter(object):
         self._opt.optimise()
         print funcname(), "finished optimisation"
         # FIXME: generate an event here
-        # self._zw.updateGL()
         print self._opt.getSolutionReport()
 
         # Diagnostics: compute RMS error
@@ -612,7 +601,6 @@ class Fitter(object):
 #                                    lines_name='lines',
 #                                    coordinate_field_name=coords)
 #          
-#         self._zw.viewAll()
 #         
 #         self.meshLoaded()
 
