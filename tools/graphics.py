@@ -8,7 +8,7 @@ from tools.utilities import get_scene
 _defaultGraphicsCreated = False
 
 
-def defineStandardGlyphs(self, context):
+def defineStandardGlyphs(context):
     '''
     Helper method to define the standard glyphs.
     '''
@@ -16,7 +16,7 @@ def defineStandardGlyphs(self, context):
     glyph_module.defineStandardGlyphs()
 
 
-def defineStandardMaterials(self, context):
+def defineStandardMaterials(context):
     '''
     Helper method to define the standard materials.
     '''
@@ -51,12 +51,12 @@ def createDatapointGraphics(ctxt, **kwargs):
     with get_scene(default_region) as scene:
                     
         data_coordinates = field_module.findFieldByName('data_coordinates')
-        diamond = scene.createGraphicsPoints()
-        diamond.setCoordinateField(data_coordinates)
-        diamond.setFieldDomainType(Field.DOMAIN_TYPE_DATAPOINTS)
-        att = diamond.getGraphicspointattributes()
+        diamonds = scene.createGraphicsPoints()
+        diamonds.setCoordinateField(data_coordinates)
+        diamonds.setFieldDomainType(Field.DOMAIN_TYPE_DATAPOINTS)
+        att = diamonds.getGraphicspointattributes()
         att.setGlyphShapeType(Glyph.SHAPE_TYPE_DIAMOND)
-        diamond.setMaterial(green)
+        diamonds.setMaterial(green)
         
         base_size = kwargs.get('datapoints_size', 1)
         att.setBaseSize(base_size)
@@ -71,7 +71,9 @@ def createDatapointGraphics(ctxt, **kwargs):
     
         datapoints_name = kwargs.get('datapoints_name')
         if datapoints_name:
-            diamond.setName(datapoints_name)
+            diamonds.setName(datapoints_name)
+            
+    return (diamonds)
 
 
 def createNodeGraphics(ctxt, **kwargs):
@@ -95,10 +97,10 @@ def createNodeGraphics(ctxt, **kwargs):
     #     sNodes = fm.findNodesetByName('nodes')
     #     print "sNodes.getSize()", sNodes.getSize()
          
-        sphere = scene.createGraphicsPoints()
-        sphere.setCoordinateField(finite_element_field)
-        sphere.setFieldDomainType(Field.DOMAIN_TYPE_NODES)
-        att = sphere.getGraphicspointattributes()
+        spheres = scene.createGraphicsPoints()
+        spheres.setCoordinateField(finite_element_field)
+        spheres.setFieldDomainType(Field.DOMAIN_TYPE_NODES)
+        att = spheres.getGraphicspointattributes()
         att.setGlyphShapeType(Glyph.SHAPE_TYPE_SPHERE)
         if 'nodes_size' in kwargs:
             att.setBaseSize(kwargs['nodes_size'])
@@ -110,11 +112,13 @@ def createNodeGraphics(ctxt, **kwargs):
                 label_field_name = 'cmiss_number' 
             cmiss_number_field = field_module.findFieldByName(label_field_name)
             
-            print "cmiss_number_field.isValid()", cmiss_number_field.isValid()
+            #print "cmiss_number_field.isValid()", cmiss_number_field.isValid()
             att.setLabelField(cmiss_number_field)
     
         if 'nodes_name' in kwargs:
-            sphere.setName(kwargs['nodes_name'])    
+            spheres.setName(kwargs['nodes_name'])
+            
+    return (spheres, )  
 
 
 def createSurfaceGraphics(ctxt, **kwargs):
@@ -153,3 +157,10 @@ def createSurfaceGraphics(ctxt, **kwargs):
         if 'surfaces_name' in kwargs:
             surfaces.setName(kwargs['surfaces_name'])
      
+        if 'colour' in kwargs:
+            surfaces.setName(kwargs['surfaces_name'])
+            materials_module = ctxt.getMaterialmodule()
+            green = materials_module.findMaterialByName('green')
+            surfaces.setMaterial(green)
+            
+    return (lines, surfaces)
