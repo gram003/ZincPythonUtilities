@@ -1,6 +1,7 @@
 import math
 
 from opencmiss.zinc.element import Element, Elementbasis
+from opencmiss.zinc.status import OK
 
 from tools.utilities import get_field_module
 
@@ -178,13 +179,102 @@ def create_nodes(ctxt, region, coordinate_set, field_name='coordinates', merge=F
     
     return nodeset
 
-def linear_to_cubic(ctxt, nodes, elements):
-# Do we create linear elements in zinc first? I guess that we need those
-# in order to interpolate the positions of the internal nodes.
-# Is it better to create new elements or get the existing elements?
-# Answer - load linear mesh into one region and create the cubic mesh in another region
-# Having the corner nodes of the cubic mesh match the linear mesh nodes is optional (but probably desirable)
-    pass
+def linear_to_cubic(ctxt, region_linear, region_cubic, nodes, elements, field_name='coordinates'):
+    """
+    Convert a 3D linear mesh to cubic Lagrange 
+    """
+
+    # Implementation notes:
+    # Load the linear mesh into zinc as it will be need to interpolated
+    # the positions of the internal nodes
+    
+    # Copy the linear mesh nodes into a new region
+    # For each linear element
+    #    get the location of xi=0,0,0
+    #    search for an existing node at this location
+    #    if not found:
+    #        create a new node
+    #    add the node to the element at the correct index
+
+    import numpy as np
+     
+    # create a linear mesh in the given region
+    linear_mesh(ctxt, region_linear, nodes, elements)
+
+    with get_field_module(region_linear) as d_fm, \
+                                get_field_module(region) as fm:
+        d_coordinates = d_fm.findFieldByName(field_name)
+        d_fc = d_fm.createFieldcache()
+        
+        # Copy the nodes from the linear mesh into the new region, these will
+        # become the corner nodes of the cubic Lagrange mesh.
+        nodes = nodes_to_list(ctxt, region_linear)
+        create_nodes(ctxt, region_cubic, nodes)
+                
+        # precompute the xi coordinates
+        xi = np.linspace(0, 1, 4)
+
+        # iterate over the elements in the linear mesh
+        mesh3d = d_fm.findMeshByDimension(3)
+        
+        # coords field and cache for the new field
+        coordinates = fm.findFieldByName(field_name)
+        fc = fm.createFieldcache()
+
+        # Create a template for defining new nodes
+        nodeset = fm.findNodesetByName('nodes')
+        node_template = nodeset.createNodetemplate()
+        node_template.defineField(coordinates)
+        
+        def find_node(coords):
+            node_iter = nodeset.createNodeiterator()
+            node = node_iter.next()
+            found_node_id = None
+            while node.isValid():
+                fc.setNode(node)
+                result, outValues = coordinates.evaluateReal(fc, 3)
+                if result != OK:
+                    raise RuntimeError("Failed evaluating node %d", node.getIdentifier())
+                if np.allclose(np.array(outValues), np.array(coords)):
+                    found_node_id = node.getIdentifier()
+                    break
+                node = node_iter.next()
+            return found_node_id
+
+        cubic_elements = []
+        el_iter = mesh3d.createElementiterator()
+        element = el_iter.next()
+        while element.isValid():
+            new_element = []
+            elem_id = element.getIdentifier()
+            #print "elem_id", elem_id
+
+            for xi3 in xi:
+                for xi2 in xi:
+                    for xi1 in xi:
+                        d_fc.setMeshLocation(element, [xi1, xi2, xi3])
+                        result, outValues = d_coordinates.evaluateReal(d_fc, 3)
+                        #print "xi", xi1, xi2, xi3, "location", outValues
+                        
+                        # try to find a node with these coordinates
+                        node_id = find_node(outValues)
+                        if node_id is None:
+                            #create a new node
+                            new_node = nodeset.createNode(-1, node_template)
+                            fc.setNode(new_node)
+                            # Pass in floats as an array
+                            coordinates.assignReal(fc, outValues)
+                            node_id = new_node.getIdentifier()
+                    
+                        new_element.append(node_id)
+            
+            element = el_iter.next()
+            cubic_elements.append(new_element)           
+
+        # The nodes have already been added to the region so use these existing nodes
+        cubic_lagrange_mesh(ctxt, region_cubic, [], cubic_elements)
+        
+
 def _nodes_to_list(ctxt, region, nodesetName, numValues=3, coordFieldName='coordinates'):
     """
     Extract nodes into a Python list
