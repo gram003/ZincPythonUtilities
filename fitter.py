@@ -38,7 +38,8 @@ class Fitter(object):
     def __init__(self, context):
         object.__init__(self)
         
-        self._context = context 
+        self._context = context
+        self._region = context.getDefaultRegion()
         self._projected_coordinates = None
         self._error_vector = None
         self._graphicsProjectedPoints = None
@@ -50,7 +51,7 @@ class Fitter(object):
         return self._context
     
     def region(self):
-        return self._context.getDefaultRegion()
+        return self._region
     
     def setReferenceCoordinates(self, x):
         self._refcoords = x
@@ -65,8 +66,7 @@ class Fitter(object):
         self._selectMode = mode
         
     def meshLoaded(self):
-        region = self.context().getDefaultRegion()
-        fm = region.getFieldmodule()
+        fm = self.region().getFieldmodule()
         self._coordinates = fm.findFieldByName('coordinates')
         self._reference_coordinates = fm.findFieldByName('reference_coordinates')
         self._data_coordinates = fm.findFieldByName('data_coordinates')
@@ -95,11 +95,11 @@ class Fitter(object):
         # Use Ju's ICP
         import ICP
         # extract nodes into a numpy array
-        node_list = mesh.nodes_to_list(self.context(), 3, 'coordinates')
+        node_list = mesh.nodes_to_list(self.context(), self.region(), 3, 'coordinates')
         # print node_list
         n = np.array(node_list)
         
-        data_list = mesh.data_to_list(self.context(), 3, 'data_coordinates')
+        data_list = mesh.data_to_list(self.context(), self.region(), 3, 'data_coordinates')
         # print data_list
         d = np.array(data_list)
         
@@ -111,26 +111,26 @@ class Fitter(object):
         # T, trans_nodes = ICP.fitDataRigidEPDP(n, d)
         # T, trans_nodes = ICP.fitDataRigidScaleEPDP(n, d)
         
-        mesh.list_to_nodes(self.context(), trans_nodes.tolist(), 'coordinates')
-        mesh.list_to_nodes(self.context(), trans_nodes.tolist(), 'reference_coordinates')
+        mesh.update_nodes(self.context(), self.region(), trans_nodes.tolist(), 'coordinates')
+        mesh.update_nodes(self.context(), self.region(), trans_nodes.tolist(), 'reference_coordinates')
 
         return restore
     
     def create_data_undo(self):
         # save the original data state
-        data_list = mesh.data_to_list(self.context(), 3, 'data_coordinates')
+        data_list = mesh.data_to_list(self.context(), self.region(), 3, 'data_coordinates')
         
         def restore(data):
-            mesh.list_to_data(self.context(), data, 'data_coordinates')
+            mesh.update_data(self.context(), self.region(), data, 'data_coordinates')
         undo = partial(restore, data_list)
         return undo
         
     def _create_nodes_undo(self, coordinateFieldName):
         # save the nodes state
-        nodes = mesh.nodes_to_list(self.context(), 3, coordinateFieldName)
+        nodes = mesh.nodes_to_list(self.context(), self.region(), 3, coordinateFieldName)
         
         def restore(data):
-            mesh.list_to_nodes(self.context(), nodes, coordinateFieldName)
+            mesh.update_nodes(self.context(), self.region(), nodes, coordinateFieldName)
         undo = partial(restore, nodes)
         return undo
 
@@ -150,7 +150,7 @@ class Fitter(object):
         
         undo = self.create_data_undo()
         
-        data_list = mesh.data_to_list(self.context(), 3, 'data_coordinates')
+        data_list = mesh.data_to_list(self.context(), self.region(), 3, 'data_coordinates')
                     
         t = np.identity(3)
         t[axis, axis] = -1
@@ -170,7 +170,7 @@ class Fitter(object):
         else:
             data_list = mirrored
 
-        mesh.list_to_data(self.context(), data_list.tolist(), 'data_coordinates')
+        mesh.update_data(self.context(), self.region(), data_list.tolist(), 'data_coordinates')
         
         return undo
 
@@ -547,10 +547,11 @@ class Fitter(object):
             # FIXME: log diagnostics
             raise ex
         ctxt = self.context()
+        region = ctxt.getDefaultRegion()
         
         # returns a python list
         datapoints = mesh.read_txtnode(record['data'])
-        mesh.data_points(ctxt, datapoints)
+        mesh.create_data_points(ctxt, region, datapoints)
         
         nodes = mesh.read_txtnode(record['nodes'])
         
@@ -559,13 +560,13 @@ class Fitter(object):
         coords = 'coordinates'
         ref_coords = 'reference_coordinates'
         
-        mesh.linear_mesh(ctxt, nodes, elems,
+        mesh.linear_mesh(ctxt, region, nodes, elems,
                          coordinate_field_name=coords)
         
         # Load the mesh again, this time merging with the previous mesh
         # and renaming the coordinate field to reference_coordinates.
         # This adds another set of coordinates at each node.
-        mesh.linear_mesh(ctxt, nodes, elems,
+        mesh.linear_mesh(ctxt, region, nodes, elems,
                          coordinate_field_name=ref_coords, merge=True)
 
         self._datapoint_graphics = graphics.createDatapointGraphics(ctxt, datapoints_name='data')
