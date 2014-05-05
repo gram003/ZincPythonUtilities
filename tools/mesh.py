@@ -58,49 +58,66 @@ def _coordinate_field(ctxt, region, coordinate_set, nodeset_type, coordinate_fie
 # map shape type to mesh order
 _shape_type_map = {1: Element.SHAPE_TYPE_LINE,
                    2: Element.SHAPE_TYPE_SQUARE,
-                   3: Element.SHAPE_TYPE_CUBE}
+                   3: Element.SHAPE_TYPE_CUBE }
 
+_basis_type_map = {1: Elementbasis.FUNCTION_TYPE_LINEAR_LAGRANGE,
+                   2: Elementbasis.FUNCTION_TYPE_QUADRATIC_LAGRANGE,
+                   3: Elementbasis.FUNCTION_TYPE_CUBIC_LAGRANGE }
 
 # findNodeByIdentifier
 # node.merge(template)
 
-def linear_mesh(ctxt, node_coordinate_set, element_set, **kwargs):
+def _lagrange_mesh(ctxt, region, basis_order, node_coordinate_set, element_set, **kwargs):
     '''
     Create linear finite elements given node and element lists
+    param: ctxt xinc context
+    param: region zinc region
+    param: order order of Lagrange interpolation 1 = linear, 2 = quadratic, 3 = cubic
     '''
+    # Parse kwargs    
+    coordinate_field_name = kwargs.get('coordinate_field_name', 'coordinates')
+    merge = kwargs.get('merge', False)
+    
+    use_existing_nodes = kwargs.get('use_existing_nodes', False)
 
     if len(element_set) == 0:
         raise RuntimeError("Empty element list") 
 
     if len(node_coordinate_set) == 0:
-        raise RuntimeError("Empty node list") 
+            use_existing_nodes = True
 
-    default_region = ctxt.getDefaultRegion()
-    with get_field_module(default_region) as field_module:
+    with get_field_module(region) as field_module:
 
-        # Parse kwargs    
-        coordinate_field_name = kwargs.get('coordinate_field_name', 'coordinates')
-        merge = kwargs.get('merge', False)
-    
-        nodeset = _coordinate_field(ctxt, node_coordinate_set, 'nodes', coordinate_field_name, merge)
+        if use_existing_nodes:
+            nodeset = field_module.findNodesetByName('nodes')
+            if not nodeset.isValid():
+                raise RuntimeError("The node list was empty and could not find a nodeset in the given region")
+        else:
+            nodeset = _coordinate_field(ctxt, region, node_coordinate_set, 'nodes', coordinate_field_name, merge)
     
         # Create and configure an element template for the appropriate mesh type.
         element_node_count = len(element_set[0])
-    
-        order = int(math.log(element_node_count, 2))
-        #if __debug__: print "mesh order", order        
-        
-        mesh = field_module.findMeshByDimension(order)
+
+        # Work out the mesh dimension from the number of nodes in the first element    
+        float_dimension = math.log(element_node_count, basis_order+1)
+        dimension = int(round(math.log(element_node_count, basis_order+1)))
+        assert(float_dimension - dimension == 0.0)
+        if float_dimension - dimension != 0.0:
+            raise RuntimeError("Wrong number of nodes in element. Got %d expected %d." \
+                               % (element_node_count, math.pow(basis_order+1, dimension)))
+        #if __debug__: print "mesh basis_order", basis_order, "dimension", dimension    
+
+        mesh = field_module.findMeshByDimension(dimension)
         element_template = mesh.createElementtemplate()
         
-        
-        element_template.setElementShapeType(_shape_type_map[order])
+        element_template.setElementShapeType(_shape_type_map[dimension])
         element_template.setNumberOfNodes(element_node_count)
         
         # Specify the dimension and the interpolation function for the element basis function
-        linear_basis = field_module.createElementbasis(
-               order,
-               Elementbasis.FUNCTION_TYPE_LINEAR_LAGRANGE)
+        basis_type = _basis_type_map[basis_order]
+        basis = field_module.createElementbasis(
+               dimension,
+               basis_type)
         
         # the indices of the nodes in the node template we want to use.
         local_indices = [x for x in xrange(1, element_node_count+1)]
@@ -110,7 +127,7 @@ def linear_mesh(ctxt, node_coordinate_set, element_set, **kwargs):
         finite_element_field = field_module.findFieldByName(coordinate_field_name)
         element_template.defineFieldSimpleNodal(finite_element_field,
                                                 -1,
-                                                linear_basis,
+                                                basis,
                                                 local_indices)
     
         # create the elements
@@ -134,6 +151,15 @@ def linear_mesh(ctxt, node_coordinate_set, element_set, **kwargs):
     
         finite_element_field.setTypeCoordinate(True) 
         field_module.defineAllFaces() 
+
+def linear_mesh(ctxt, region, node_coordinate_set, element_set, **kwargs):
+    _lagrange_mesh(ctxt, region, 1, node_coordinate_set, element_set, **kwargs)
+
+def quadratic_lagrange_mesh(ctxt, region, node_coordinate_set, element_set, **kwargs):
+    _lagrange_mesh(ctxt, region, 2, node_coordinate_set, element_set, **kwargs)
+
+def cubic_lagrange_mesh(ctxt, region, node_coordinate_set, element_set, **kwargs):
+    _lagrange_mesh(ctxt, region, 3, node_coordinate_set, element_set, **kwargs)
     
 def create_data_points(ctxt, region, coordinate_set, field_name='data_coordinates'):
     
