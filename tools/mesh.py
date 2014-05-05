@@ -130,10 +130,11 @@ def _lagrange_mesh(ctxt, region, basis_order, node_coordinate_set, element_set, 
                                                 -1,
                                                 basis,
                                                 local_indices)
-    
+
         # create the elements
         element_id = 1
         for node_indices in element_set:
+            print funcname(), "element_id", element_id
             def _populateTemplate():
                 for i, node_idx in enumerate(node_indices):
                     node = nodeset.findNodeByIdentifier(node_idx)
@@ -145,12 +146,14 @@ def _lagrange_mesh(ctxt, region, basis_order, node_coordinate_set, element_set, 
             else:
                 element = mesh.findElementByIdentifier(element_id)
                 _populateTemplate()
-                
+                 
                 element.merge(element_template)
-                element_id += 1
-                
-    
+
+            element_id += 1
+            
+
         finite_element_field.setTypeCoordinate(True) 
+
         field_module.defineAllFaces() 
 
 def linear_mesh(ctxt, region, node_coordinate_set, element_set, **kwargs):
@@ -202,7 +205,7 @@ def linear_to_cubic(ctxt, region_linear, region_cubic, nodes, elements, field_na
     linear_mesh(ctxt, region_linear, nodes, elements)
 
     with get_field_module(region_linear) as d_fm, \
-                                get_field_module(region) as fm:
+                                get_field_module(region_cubic) as fm:
         d_coordinates = d_fm.findFieldByName(field_name)
         d_fc = d_fm.createFieldcache()
         
@@ -215,7 +218,7 @@ def linear_to_cubic(ctxt, region_linear, region_cubic, nodes, elements, field_na
         xi = np.linspace(0, 1, 4)
 
         # iterate over the elements in the linear mesh
-        mesh3d = d_fm.findMeshByDimension(3)
+        initial_mesh = d_fm.findMeshByDimension(3)
         
         # coords field and cache for the new field
         coordinates = fm.findFieldByName(field_name)
@@ -242,12 +245,12 @@ def linear_to_cubic(ctxt, region_linear, region_cubic, nodes, elements, field_na
             return found_node_id
 
         cubic_elements = []
-        el_iter = mesh3d.createElementiterator()
+        el_iter = initial_mesh.createElementiterator()
         element = el_iter.next()
         while element.isValid():
             new_element = []
             elem_id = element.getIdentifier()
-            #print "elem_id", elem_id
+            if __debug__: print  funcname(), "elem_id", elem_id
 
             for xi3 in xi:
                 for xi2 in xi:
@@ -255,7 +258,7 @@ def linear_to_cubic(ctxt, region_linear, region_cubic, nodes, elements, field_na
                         d_fc.setMeshLocation(element, [xi1, xi2, xi3])
                         result, outValues = d_coordinates.evaluateReal(d_fc, 3)
                         #print "xi", xi1, xi2, xi3, "location", outValues
-                        
+                         
                         # try to find a node with these coordinates
                         node_id = find_node(outValues)
                         if node_id is None:
@@ -265,7 +268,7 @@ def linear_to_cubic(ctxt, region_linear, region_cubic, nodes, elements, field_na
                             # Pass in floats as an array
                             coordinates.assignReal(fc, outValues)
                             node_id = new_node.getIdentifier()
-                    
+                     
                         new_element.append(node_id)
             
             element = el_iter.next()
