@@ -4,7 +4,9 @@ from opencmiss.zinc.element import Element, Elementbasis
 
 from tools.utilities import get_field_module
 
-def _coordinate_field(ctxt, coordinate_set, nodeset_type, coordinate_field_name, merge=False):
+from tools.diagnostics import funcname
+
+def _coordinate_field(ctxt, region, coordinate_set, nodeset_type, coordinate_field_name, merge=False):
     '''
     Create a coordinate field given a coordinate list.
     Returns the nodeset
@@ -17,12 +19,10 @@ def _coordinate_field(ctxt, coordinate_set, nodeset_type, coordinate_field_name,
         raise RuntimeError("Invalid nodeset type") 
 
     coord_count = len(coordinate_set[0])
-    
-    default_region = ctxt.getDefaultRegion()
-    
+        
     # Get the field module for root region, with which we  shall create a 
     # finite element coordinate field.
-    with get_field_module(default_region) as field_module:
+    with get_field_module(region) as field_module:
     
         finite_element_field = field_module.createFieldFiniteElement(coord_count)
         finite_element_field.setName(coordinate_field_name)
@@ -135,20 +135,20 @@ def linear_mesh(ctxt, node_coordinate_set, element_set, **kwargs):
         finite_element_field.setTypeCoordinate(True) 
         field_module.defineAllFaces() 
     
-def data_points(ctxt, coordinate_set, field_name='data_coordinates'):
+def create_data_points(ctxt, region, coordinate_set, field_name='data_coordinates'):
     
     if len(coordinate_set) == 0:
         raise RuntimeError("Empty datapoint coordinate list") 
                 
-    nodeset = _coordinate_field(ctxt, coordinate_set, 'datapoints', field_name)
+    nodeset = _coordinate_field(ctxt, region, coordinate_set, 'datapoints', field_name)
     
     return nodeset
 
-def nodes(ctxt, coordinate_set, field_name='coordinates', merge=False):
+def create_nodes(ctxt, region, coordinate_set, field_name='coordinates', merge=False):
     if len(coordinate_set) == 0:
         raise RuntimeError("Empty node coordinate list") 
 
-    nodeset = _coordinate_field(ctxt, coordinate_set, 'nodes', field_name, merge)
+    nodeset = _coordinate_field(ctxt, region, coordinate_set, 'nodes', field_name, merge)
     
     return nodeset
 
@@ -159,12 +159,10 @@ def linear_to_cubic(ctxt, nodes, elements):
 # Answer - load linear mesh into one region and create the cubic mesh in another region
 # Having the corner nodes of the cubic mesh match the linear mesh nodes is optional (but probably desirable)
     pass
-
-def _nodes_to_list(ctxt, nodesetName, numValues=3, coordFieldName='coordinates'):
+def _nodes_to_list(ctxt, region, nodesetName, numValues=3, coordFieldName='coordinates'):
     """
     Extract nodes into a Python list
     """
-    region = ctxt.getDefaultRegion()
     fm = region.getFieldmodule()
     sNodes = fm.findNodesetByName(nodesetName)
     field = fm.findFieldByName(coordFieldName)
@@ -185,11 +183,10 @@ def _nodes_to_list(ctxt, nodesetName, numValues=3, coordFieldName='coordinates')
 
     return node_list
 
-def _list_to_nodes(ctxt, coordinate_set, nodesetName, coordFieldName='coordinates'):
+def _update_nodes(ctxt, region, coordinate_set, nodesetName, coordFieldName='coordinates'):
     """
     Update nodes with the coordinates in the given coordinate_set.
     """
-    region = ctxt.getDefaultRegion()
     fm = region.getFieldmodule()
     sNodes = fm.findNodesetByName(nodesetName)
     field = fm.findFieldByName(coordFieldName)
@@ -206,29 +203,29 @@ def _list_to_nodes(ctxt, coordinate_set, nodesetName, coordFieldName='coordinate
             node_id += 1
             
     
-def nodes_to_list(ctxt, numValues=3, coordFieldName='coordinates'):
+def nodes_to_list(ctxt, region, numValues=3, coordFieldName='coordinates'):
     """
     Return all nodes as a Python list
     """
-    return _nodes_to_list(ctxt, 'nodes', numValues, coordFieldName)
+    return _nodes_to_list(ctxt, region, 'nodes', numValues, coordFieldName)
 
-def list_to_nodes(ctxt, node_list, coordFieldName='coordinates'):
+def update_nodes(ctxt, region, node_list, coordFieldName='coordinates'):
     """
-    Generate nodes from a list of coordinates
+    Update nodes from a list of coordinates
     """
-    _list_to_nodes(ctxt, node_list, 'nodes', coordFieldName)
+    _update_nodes(ctxt, region, node_list, 'nodes', coordFieldName)
 
-def data_to_list(ctxt, numValues=3, coordFieldName='data_coordinates'):
+def data_to_list(ctxt, region, numValues=3, coordFieldName='data_coordinates'):
     """
     Return all datapoints as a Python list
     """
-    return _nodes_to_list(ctxt, 'datapoints', numValues, coordFieldName)
+    return _nodes_to_list(ctxt, region, 'datapoints', numValues, coordFieldName)
 
-def list_to_data(ctxt, node_list, coordFieldName='data_coordinates'):
+def update_data(ctxt, region, node_list, coordFieldName='data_coordinates'):
     """
     Generate datapoints from a list of coordinates
     """
-    _list_to_nodes(ctxt, node_list, 'datapoints', coordFieldName)
+    _update_nodes(ctxt, region, node_list, 'datapoints', coordFieldName)
 
     
 def read_txtelem(filename):
