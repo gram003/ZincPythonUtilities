@@ -11,6 +11,7 @@ import Queue
 from opencmiss.zinc.context import Context
 
 import tools.mesh as mesh
+import tools.graphics as graphics
 
 try:
     from PyQt4 import QtGui, QtCore
@@ -55,12 +56,13 @@ def linear_mesh(node_coordinate_set, element_set, **kwargs):
     def _linear_mesh():
         _init()
         global _ctxt
-        mesh.linear_mesh(_ctxt, node_coordinate_set, element_set)
-        mesh.createNodeGraphics(_ctxt, **kwargs)
-        mesh.createSurfaceGraphics(_ctxt, **kwargs)
+        region = _ctxt.getDefaultRegion()
+        mesh.linear_mesh(_ctxt, region, node_coordinate_set, element_set)
+        graphics.createNodeGraphics(_ctxt, **kwargs)
+        graphics.createSurfaceGraphics(_ctxt, **kwargs)
 
     _messageQueue.put(_linear_mesh)
-    
+        
 def data_points(coordinate_set, **kwargs):
     
     if len(coordinate_set) == 0:
@@ -68,8 +70,9 @@ def data_points(coordinate_set, **kwargs):
     
     def _data_points():
         _init()        
-        mesh.data_points(_ctxt, coordinate_set)
-        mesh.createDatapointGraphics(_ctxt, **kwargs)
+        region = _ctxt.getDefaultRegion()
+        mesh.create_data_points(_ctxt, region, coordinate_set)
+        graphics.createDatapointGraphics(_ctxt, **kwargs)
     
     _messageQueue.put(_data_points)
 
@@ -80,8 +83,9 @@ def nodes(coordinate_set, **kwargs):
     
     def _nodes():
         _init()        
-        mesh.nodes(_ctxt, coordinate_set)
-        mesh.createNodeGraphics(_ctxt, **kwargs)
+        region = _ctxt.getDefaultRegion()
+        mesh.create_nodes(_ctxt, region, coordinate_set)
+        graphics.createNodeGraphics(_ctxt, **kwargs)
     
     _messageQueue.put(_nodes)
 
@@ -90,9 +94,9 @@ def createGraphics(**kwargs):
     def _createGraphics():
         _init()        
         global _ctxt
-        mesh.createNodeGraphics(_ctxt, **kwargs)
-        mesh.createDatapointGraphics(_ctxt, **kwargs)
-        mesh.createSurfaceGraphics(_ctxt, **kwargs)
+        graphics.createNodeGraphics(_ctxt, **kwargs)
+        graphics.createDatapointGraphics(_ctxt, **kwargs)
+        graphics.createSurfaceGraphics(_ctxt, **kwargs)
         
     _messageQueue.put(_createGraphics)
     
