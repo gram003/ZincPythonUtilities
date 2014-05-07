@@ -134,7 +134,7 @@ def _lagrange_mesh(ctxt, region, basis_order, node_coordinate_set, element_set, 
         # create the elements
         element_id = 1
         for node_indices in element_set:
-            print funcname(), "element_id", element_id
+            #print funcname(), "element_id", element_id
             def _populateTemplate():
                 for i, node_idx in enumerate(node_indices):
                     node = nodeset.findNodeByIdentifier(node_idx)
@@ -182,7 +182,7 @@ def create_nodes(ctxt, region, coordinate_set, field_name='coordinates', merge=F
     
     return nodeset
 
-def linear_to_cubic(ctxt, region_linear, region_cubic, nodes, elements, field_name='coordinates'):
+def linear_to_cubic(ctxt, region_linear, region_cubic, nodes, elements, field_name='coordinates', tol=1e-4):
     """
     Convert a 3D linear mesh to cubic Lagrange 
     """
@@ -200,10 +200,15 @@ def linear_to_cubic(ctxt, region_linear, region_cubic, nodes, elements, field_na
     #    add the node to the element at the correct index
 
     import numpy as np
-     
+    
+    # Use rtree for finding already created nodes. This is about 300 times
+    # faster than a linear search.
+    # http://toblerity.org/rtree/
+    from rtree import index
+    
     # create a linear mesh in the given region
     linear_mesh(ctxt, region_linear, nodes, elements)
-
+    
     with get_field_module(region_linear) as d_fm, \
                                 get_field_module(region_cubic) as fm:
         d_coordinates = d_fm.findFieldByName(field_name)
@@ -224,59 +229,86 @@ def linear_to_cubic(ctxt, region_linear, region_cubic, nodes, elements, field_na
         coordinates = fm.findFieldByName(field_name)
         fc = fm.createFieldcache()
 
+        # Create a 3D Rtree
+        p = index.Property()
+        p.dimension = 3
+        idx3d = index.Index(properties=p)
+
+        for i, n in enumerate(nodes):
+            # add 1 to index because zinc counts nodes starting at 1
+            idx3d.insert(i+1, n + n)
+            #print "added node", i+1, n
+
         # Create a template for defining new nodes
         nodeset = fm.findNodesetByName('nodes')
         node_template = nodeset.createNodetemplate()
         node_template.defineField(coordinates)
         
-        def find_node(coords):
-            node_iter = nodeset.createNodeiterator()
-            node = node_iter.next()
-            found_node_id = None
-            while node.isValid():
-                fc.setNode(node)
-                result, outValues = coordinates.evaluateReal(fc, 3)
-                if result != OK:
-                    raise RuntimeError("Failed evaluating node %d", node.getIdentifier())
-                if np.allclose(np.array(outValues), np.array(coords)):
-                    found_node_id = node.getIdentifier()
-                    break
-                node = node_iter.next()
-            return found_node_id
+#         # linear search - too slow
+#         def find_node(coords):
+#             node_iter = nodeset.createNodeiterator()
+#             node = node_iter.next()
+#             found_node_id = None
+#             while node.isValid():
+#                 fc.setNode(node)
+#                 result, outValues = coordinates.evaluateReal(fc, 3)
+#                 if result != OK:
+#                     raise RuntimeError("Failed evaluating node %d", node.getIdentifier())
+#                 if np.allclose(np.array(outValues), np.array(coords)):
+#                     found_node_id = node.getIdentifier()
+#                     break
+#                 node = node_iter.next()
+#             return found_node_id
 
+        ele_count = 0
         cubic_elements = []
         el_iter = initial_mesh.createElementiterator()
         element = el_iter.next()
         while element.isValid():
+            #print "element", elements[ele_count]
+            ele_count += 1
             new_element = []
-            elem_id = element.getIdentifier()
-            if __debug__: print  funcname(), "elem_id", elem_id
+#             if __debug__:
+#                 elem_id = element.getIdentifier()
+#                 print  funcname(), "elem_id", elem_id
 
             for xi3 in xi:
                 for xi2 in xi:
                     for xi1 in xi:
+                        # print "xi", xi1, xi2, xi3
                         d_fc.setMeshLocation(element, [xi1, xi2, xi3])
                         result, outValues = d_coordinates.evaluateReal(d_fc, 3)
-                        #print "xi", xi1, xi2, xi3, "location", outValues
-                         
-                        # try to find a node with these coordinates
-                        node_id = find_node(outValues)
-                        if node_id is None:
+                        bb = np.array(outValues)
+                        bb_min = bb - tol
+                        bb_max = bb + tol
+                        #print bb, bb_min, bb_max
+                        found = list(idx3d.intersection(bb_min.tolist() + bb_max.tolist()))
+                        # print "found", found, "at", outValues
+                        if len(found) == 0:
+                            node_id = None
+                        else:
+                            node_id = found[0]
+                            # print "found node", node_id
+                            
+                        if node_id == None:
                             #create a new node
                             new_node = nodeset.createNode(-1, node_template)
                             fc.setNode(new_node)
                             # Pass in floats as an array
                             coordinates.assignReal(fc, outValues)
+                            
                             node_id = new_node.getIdentifier()
-                     
+                            idx3d.insert(node_id, n + n)
+                            # print "created node", node_id  
+
                         new_element.append(node_id)
-            
+
             element = el_iter.next()
-            cubic_elements.append(new_element)           
+            cubic_elements.append(new_element)
 
         # The nodes have already been added to the region so use these existing nodes
         cubic_lagrange_mesh(ctxt, region_cubic, [], cubic_elements)
-        
+
 
 def _nodes_to_list(ctxt, region, nodesetName, numValues=3, coordFieldName='coordinates'):
     """
@@ -375,4 +407,3 @@ def read_txtnode(filename):
     import numpy as np
     nodes = np.loadtxt(filename)
     return nodes.tolist()
-
