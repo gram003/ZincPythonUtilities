@@ -34,21 +34,19 @@ def _createDefaultGraphics(context):
         material_module.defineStandardMaterials()
 
 
-def createDatapointGraphics(ctxt, **kwargs):
+def createDatapointGraphics(ctxt, region, **kwargs):
     
     #_createDefaultGraphics(ctxt)
     glyph_module = ctxt.getGlyphmodule()
     glyph_module.defineStandardGlyphs()
 
-    default_region = ctxt.getDefaultRegion()
-
     materials_module = ctxt.getMaterialmodule()
     materials_module.defineStandardMaterials()
     green = materials_module.findMaterialByName('green')
 
-    field_module = default_region.getFieldmodule()
+    field_module = region.getFieldmodule()
 
-    with get_scene(default_region) as scene:
+    with get_scene(region) as scene:
                     
         data_coordinates = field_module.findFieldByName('data_coordinates')
         diamonds = scene.createGraphicsPoints()
@@ -76,15 +74,14 @@ def createDatapointGraphics(ctxt, **kwargs):
     return (diamonds)
 
 
-def createNodeGraphics(ctxt, **kwargs):
+def createNodeGraphics(ctxt, region, **kwargs):
 
     _createDefaultGraphics(ctxt)
 
-    default_region = ctxt.getDefaultRegion()
-    field_module = default_region.getFieldmodule()
+    field_module = region.getFieldmodule()
 
     # Get the scene for the default region to create the visualisation in.
-    with get_scene(default_region) as scene:
+    with get_scene(region) as scene:
 
         if 'coordinate_field_name' in kwargs:
             coordinate_field_name = kwargs['coordinate_field_name']
@@ -121,7 +118,7 @@ def createNodeGraphics(ctxt, **kwargs):
     return (spheres, )  
 
 
-def createSurfaceGraphics(ctxt, **kwargs):
+def createSurfaceGraphics(ctxt, region, **kwargs):
     '''
     Create graphics for the default region.
     Keyword arguments that are currently supported:
@@ -133,11 +130,10 @@ def createSurfaceGraphics(ctxt, **kwargs):
 
     _createDefaultGraphics(ctxt)
 
-    default_region = ctxt.getDefaultRegion()
-    field_module = default_region.getFieldmodule()
+    field_module = region.getFieldmodule()
     # Get the scene for the default region to create the visualisation in.
 
-    with get_scene(default_region) as scene:
+    with get_scene(region) as scene:
 
         # createSurfaceGraphic graphic start
         if 'coordinate_field_name' in kwargs:
