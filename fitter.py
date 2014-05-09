@@ -185,93 +185,93 @@ class Fitter(object):
 #         self._createGraphics(root_region)
 
         # Create a face group
-        region = self.context().getDefaultRegion()
-        fm = region.getFieldmodule()
-        mesh2d = fm.findMeshByDimension(2)
-        self._mesh2d = mesh2d
-        # m2 = mesh2d # should use m2 as the Hungarian prefix
-        try:
-            self._gefFaces
-        except AttributeError:
-            self._gefFaces = None
-        if self._gefFaces is None:
-            self._gefFaces = fm.createFieldElementGroup(mesh2d)
-        print "self._gefFaces", self._gefFaces
-        # Get a mesh group to contain the selected faces
-        gmFaces = self._gefFaces.getMeshGroup()
-        print "gmFaces", gmFaces 
-        gmFaces.removeAllElements()
-
-        # outsideFaceIds = [3, 8, 13, 18, 23, 27]
-        print "self._mesh2d", self._mesh2d
-        
-        # get the selection field        
-        self._selectionGroup = fm.findFieldByName("SelectionGroup").castGroup()
-        
-        # copy the selected faces to the _outsideMesh group
-        gefSelection = self._selectionGroup.getFieldElementGroup(mesh2d)
-        meshgroup = gefSelection.getMeshGroup()
-        el_iter = meshgroup.createElementiterator()
-        print "Adding elements to face group" 
-        count = 0
-        element = el_iter.next()
-        while element.isValid():
-            elem_id = element.getIdentifier()
-            print elem_id,
-            gmFaces.addElement(mesh2d.findElementByIdentifier(elem_id))
+        region = self._region_cubic
+        with get_field_module(region) as fm:
+            mesh2d = fm.findMeshByDimension(2)
+            self._mesh2d = mesh2d
+            # m2 = mesh2d # should use m2 as the Hungarian prefix
+            try:
+                self._gefFaces
+            except AttributeError:
+                self._gefFaces = None
+            if self._gefFaces is None:
+                self._gefFaces = fm.createFieldElementGroup(mesh2d)
+            print "self._gefFaces", self._gefFaces
+            # Get a mesh group to contain the selected faces
+            gmFaces = self._gefFaces.getMeshGroup()
+            print "gmFaces", gmFaces 
+            gmFaces.removeAllElements()
+    
+            # outsideFaceIds = [3, 8, 13, 18, 23, 27]
+            print "self._mesh2d", self._mesh2d
+            
+            # get the selection field        
+            self._selectionGroup = fm.findFieldByName("SelectionGroup").castGroup()
+            
+            # copy the selected faces to the _outsideMesh group
+            gefSelection = self._selectionGroup.getFieldElementGroup(mesh2d)
+            meshgroup = gefSelection.getMeshGroup()
+            el_iter = meshgroup.createElementiterator()
+            print "Adding elements to face group" 
+            count = 0
             element = el_iter.next()
-            count += 1
-        print
-        
-        # for developing just use a few faces
-        if count == 0:
-            elist = [int(x) for x in "34 77 158".split()]
-            for eindex in elist:
-                gmFaces.addElement(mesh2d.findElementByIdentifier(eindex))
-        
-        # get selected data points
-        # Create a data point group to contain the selected datapoints
-        sData = fm.findNodesetByName('datapoints')
-        print "sData", sData
-        # The FieldNodeGroup is the "main" object containing the data,
-        # but the NodesetGroup has the add/remove api.
-        try:
-            self._gnfData
-        except AttributeError:
-            self._gnfData = None
-        
-        if self._gnfData is None:
-            self._gnfData = fm.createFieldNodeGroup(sData)
-        gsData = self._gnfData.getNodesetGroup()
-        gsData.removeAllNodes()
-
-        nodegroup = self._selectionGroup.getFieldNodeGroup(sData)
-        gsDataSelected = nodegroup.getNodesetGroup()
-        dp_iter = gsDataSelected.createNodeiterator()
-        print "Adding points to data group"
-        count = 0
-        node = dp_iter.next()
-        while node.isValid():
-            node_id = node.getIdentifier()
-            print node_id,
-            gsData.addNode(gsDataSelected.findNodeByIdentifier(node_id))
+            while element.isValid():
+                elem_id = element.getIdentifier()
+                print elem_id,
+                gmFaces.addElement(mesh2d.findElementByIdentifier(elem_id))
+                element = el_iter.next()
+                count += 1
+            print
+            
+            # for developing just use a few faces
+            if count == 0:
+                elist = [int(x) for x in "34 77 158".split()]
+                for eindex in elist:
+                    gmFaces.addElement(mesh2d.findElementByIdentifier(eindex))
+            
+            # get selected data points
+            # Create a data point group to contain the selected datapoints
+            sData = fm.findNodesetByName('datapoints')
+            print "sData", sData
+            # The FieldNodeGroup is the "main" object containing the data,
+            # but the NodesetGroup has the add/remove api.
+            try:
+                self._gnfData
+            except AttributeError:
+                self._gnfData = None
+            
+            if self._gnfData is None:
+                self._gnfData = fm.createFieldNodeGroup(sData)
+            gsData = self._gnfData.getNodesetGroup()
+            gsData.removeAllNodes()
+    
+            nodegroup = self._selectionGroup.getFieldNodeGroup(sData)
+            gsDataSelected = nodegroup.getNodesetGroup()
+            dp_iter = gsDataSelected.createNodeiterator()
+            print "Adding points to data group"
+            count = 0
             node = dp_iter.next()
-            count += 1
-        print
-
-        if count == 0:
-            # for developing use data points directly from the main datapoints set
-            dlist = [int(x) for x in "24 26 113 132 157 165 200 228 229 254 269 281 304 312 349 355 374 389 406 427 454 469 490 520 533 552".split()]
-            for dindex in dlist:
-                gsData.addNode(sData.findNodeByIdentifier(dindex))
-        
-        print "self._selectionGroup", self._selectionGroup
-        print "gsData", gsData
-        # nodeGroup.
-        # self._selectionGroup.getFieldNodeGroup(datapoints).addNode(228)
-        # self._selectionGroup.addNode(228)
-
-        self._defineStoredFoundLocation(region, gsData, gmFaces)
+            while node.isValid():
+                node_id = node.getIdentifier()
+                print node_id,
+                gsData.addNode(gsDataSelected.findNodeByIdentifier(node_id))
+                node = dp_iter.next()
+                count += 1
+            print
+    
+            if count == 0:
+                # for developing use data points directly from the main datapoints set
+                dlist = [int(x) for x in "24 26 113 132 157 165 200 228 229 254 269 281 304 312 349 355 374 389 406 427 454 469 490 520 533 552".split()]
+                for dindex in dlist:
+                    gsData.addNode(sData.findNodeByIdentifier(dindex))
+            
+            print "self._selectionGroup", self._selectionGroup
+            print "gsData", gsData
+            # nodeGroup.
+            # self._selectionGroup.getFieldNodeGroup(datapoints).addNode(228)
+            # self._selectionGroup.addNode(228)
+    
+            self._defineStoredFoundLocation(region, gsData, gmFaces)
 
 
     def _defineStoredFoundLocation(self, region, gsData, gmFaces):
@@ -282,79 +282,79 @@ class Fitter(object):
         optimisation.
         '''
         print funcname()
-        fm = region.getFieldmodule()
-        
-        mesh2d = fm.findMeshByDimension(2)
-                
-        data_coordinates = fm.findFieldByName('data_coordinates')
-        coordinates = fm.findFieldByName('coordinates')
-        
-        self._found_location = fm.createFieldFindMeshLocation(data_coordinates, coordinates, gmFaces)
-        self._found_location.setSearchMode(FieldFindMeshLocation.SEARCH_MODE_NEAREST)
-        self._stored_location = fm.createFieldStoredMeshLocation(mesh2d)
-         
-#         dataNodeset = fm.findNodesetByFieldDomainType(Field.DOMAIN_TYPE_DATAPOINTS)
-#         boxpointsNodeGroup = self._boxpoints_group.getFieldNodeGroup(dataNodeset)
-#         self._boxpoints_nodeset = boxpointsNodeGroup.getNodesetGroup()
-
-        # region.writeFile("junk_region.exreg")
-
-        dataNodeset = fm.findNodesetByFieldDomainType(Field.DOMAIN_TYPE_DATAPOINTS)
-        gfDataCoords = fm.findFieldByName('data_coordinates').castGroup()
-        y = data_coordinates.castGroup()
-        
-#         self._gnfData = gfDataCoords.getFieldNodeGroup(dataNodeset)
-#         #self._datapoints_nodeset = datapointsNodeGroup.getNodesetGroup()
-#         print "self._gnfData", self._gnfData
-
-#         
-#         masterNodeset = fm.findNodesetByFieldDomainType(Field.DOMAIN_TYPE_NODES)
-#         gausspointsNodeGroup = self._gauss_points_group.getFieldNodeGroup(masterNodeset)
-#         self._gauss_points_nodeset = gausspointsNodeGroup.getNodesetGroup()
-#         nodeTemplate = self._boxpoints_nodeset.createNodetemplate()
-#         nodeTemplate.defineField(self._stored_location)
-#         node_iter = self._boxpoints_nodeset.createNodeiterator()
-#         cache = fm.createFieldcache()
-#         node = node_iter.next()
-#         while node.isValid():
-#             cache.setNode(node)
-#             element, xi = self._found_location.evaluateMeshLocation(cache, 2)
-#             if element.isValid():
-#                 node.merge(nodeTemplate)
-#                 self._stored_location.assignMeshLocation(cache, element, xi)
-#             
-#             node = node_iter.next()
-        sData = fm.findNodesetByName('datapoints')
-        print "sData", sData
-#         gnfSelectedData = self._selectionGroup.getFieldNodeGroup(sData)
-#         print "gnfSelectedData", gnfSelectedData
-#         gsSelectedData = gnfSelectedData.getNodesetGroup()
-#         dp_iter = gsSelectedData.createNodeiterator()
-
-        dp_iter = gsData.createNodeiterator()
-
-        dataTemplate = sData.createNodetemplate()
-        dataTemplate.defineField(self._stored_location)
-        cache = fm.createFieldcache()
-        datapoint = dp_iter.next()
-        if __debug__: print "Projecting data..."
-        while datapoint.isValid():
-            if __debug__: print datapoint.getIdentifier(),
-            cache.setNode(datapoint)
-            element, xi = self._found_location.evaluateMeshLocation(cache, 2)
-            if element.isValid():
-                datapoint.merge(dataTemplate)
-                self._stored_location.assignMeshLocation(cache, element, xi)
+        with get_field_module(region) as fm:
+            
+            mesh2d = fm.findMeshByDimension(2)
+                    
+            data_coordinates = fm.findFieldByName('data_coordinates')
+            coordinates = fm.findFieldByName('coordinates')
+            
+            self._found_location = fm.createFieldFindMeshLocation(data_coordinates, coordinates, gmFaces)
+            self._found_location.setSearchMode(FieldFindMeshLocation.SEARCH_MODE_NEAREST)
+            self._stored_location = fm.createFieldStoredMeshLocation(mesh2d)
              
+    #         dataNodeset = fm.findNodesetByFieldDomainType(Field.DOMAIN_TYPE_DATAPOINTS)
+    #         boxpointsNodeGroup = self._boxpoints_group.getFieldNodeGroup(dataNodeset)
+    #         self._boxpoints_nodeset = boxpointsNodeGroup.getNodesetGroup()
+    
+            # region.writeFile("junk_region.exreg")
+    
+            dataNodeset = fm.findNodesetByFieldDomainType(Field.DOMAIN_TYPE_DATAPOINTS)
+            gfDataCoords = fm.findFieldByName('data_coordinates').castGroup()
+            y = data_coordinates.castGroup()
+            
+    #         self._gnfData = gfDataCoords.getFieldNodeGroup(dataNodeset)
+    #         #self._datapoints_nodeset = datapointsNodeGroup.getNodesetGroup()
+    #         print "self._gnfData", self._gnfData
+    
+    #         
+    #         masterNodeset = fm.findNodesetByFieldDomainType(Field.DOMAIN_TYPE_NODES)
+    #         gausspointsNodeGroup = self._gauss_points_group.getFieldNodeGroup(masterNodeset)
+    #         self._gauss_points_nodeset = gausspointsNodeGroup.getNodesetGroup()
+    #         nodeTemplate = self._boxpoints_nodeset.createNodetemplate()
+    #         nodeTemplate.defineField(self._stored_location)
+    #         node_iter = self._boxpoints_nodeset.createNodeiterator()
+    #         cache = fm.createFieldcache()
+    #         node = node_iter.next()
+    #         while node.isValid():
+    #             cache.setNode(node)
+    #             element, xi = self._found_location.evaluateMeshLocation(cache, 2)
+    #             if element.isValid():
+    #                 node.merge(nodeTemplate)
+    #                 self._stored_location.assignMeshLocation(cache, element, xi)
+    #             
+    #             node = node_iter.next()
+            sData = fm.findNodesetByName('datapoints')
+            print "sData", sData
+    #         gnfSelectedData = self._selectionGroup.getFieldNodeGroup(sData)
+    #         print "gnfSelectedData", gnfSelectedData
+    #         gsSelectedData = gnfSelectedData.getNodesetGroup()
+    #         dp_iter = gsSelectedData.createNodeiterator()
+    
+            dp_iter = gsData.createNodeiterator()
+    
+            dataTemplate = sData.createNodetemplate()
+            dataTemplate.defineField(self._stored_location)
+            cache = fm.createFieldcache()
             datapoint = dp_iter.next()
-        if __debug__: print
-        
-        # del self._projected_coordinates
-        # del self._error_vector
-        self._projected_coordinates = fm.createFieldEmbedded(self._coordinates, self._stored_location)
-        self._error_vector = fm.createFieldSubtract(self._projected_coordinates, self._data_coordinates)
-        
-        self._createProjectionGraphics()
+            if __debug__: print "Projecting data..."
+            while datapoint.isValid():
+                if __debug__: print datapoint.getIdentifier(),
+                cache.setNode(datapoint)
+                element, xi = self._found_location.evaluateMeshLocation(cache, 2)
+                if element.isValid():
+                    datapoint.merge(dataTemplate)
+                    self._stored_location.assignMeshLocation(cache, element, xi)
+                 
+                datapoint = dp_iter.next()
+            if __debug__: print
+            
+            # del self._projected_coordinates
+            # del self._error_vector
+            self._projected_coordinates = fm.createFieldEmbedded(self._coordinates, self._stored_location)
+            self._error_vector = fm.createFieldSubtract(self._projected_coordinates, self._data_coordinates)
+            
+            self._createProjectionGraphics()
         
     def _createProjectionGraphics(self):
         materials_module = self.context().getMaterialmodule()
@@ -496,7 +496,7 @@ class Fitter(object):
             dp = dp_iter.next()
             
         region.writeFile("after.exregi")
-        
+
         # FIXME: Not sure why this is necessary, but the graphics don't
         # update if only show_fitted is called.
         # self.show_reference()
