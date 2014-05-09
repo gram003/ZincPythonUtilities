@@ -39,7 +39,7 @@ class Fitter(object):
         object.__init__(self)
         
         self._context = context
-        self._region = context.getDefaultRegion()
+        self._root_region = context.getDefaultRegion()
         self._projected_coordinates = None
         self._error_vector = None
         self._graphicsProjectedPoints = None
@@ -51,7 +51,7 @@ class Fitter(object):
         return self._context
     
     def region(self):
-        return self._region
+        return self._root_region
     
     def setReferenceCoordinates(self, x):
         self._refcoords = x
@@ -66,7 +66,7 @@ class Fitter(object):
         self._selectMode = mode
         
     def meshLoaded(self):
-        fm = self.region().getFieldmodule()
+        fm = self._region_linear.getFieldmodule()
         self._coordinates = fm.findFieldByName('coordinates')
         self._reference_coordinates = fm.findFieldByName('reference_coordinates')
         self._data_coordinates = fm.findFieldByName('data_coordinates')
@@ -79,8 +79,10 @@ class Fitter(object):
 #                                                                    Sceneviewer.STEREO_MODE_DEFAULT)
 #         
 #         scene_viewer.viewAll()
-
-        self.show_reference(True)
+        #self.region().writeFile("junk.exregi")
+        
+        self.show_data(True)
+        self.show_initial(True)
         self.show_fitted(True)
 
 
@@ -95,11 +97,11 @@ class Fitter(object):
         # Use Ju's ICP
         import ICP
         # extract nodes into a numpy array
-        node_list = mesh.nodes_to_list(self.context(), self.region(), 3, 'coordinates')
+        node_list = mesh.nodes_to_list(self.context(), self._region_linear, 3, 'coordinates')
         # print node_list
         n = np.array(node_list)
         
-        data_list = mesh.data_to_list(self.context(), self.region(), 3, 'data_coordinates')
+        data_list = mesh.data_to_list(self.context(), self._region_linear, 3, 'data_coordinates')
         # print data_list
         d = np.array(data_list)
         
@@ -111,26 +113,26 @@ class Fitter(object):
         # T, trans_nodes = ICP.fitDataRigidEPDP(n, d)
         # T, trans_nodes = ICP.fitDataRigidScaleEPDP(n, d)
         
-        mesh.update_nodes(self.context(), self.region(), trans_nodes.tolist(), 'coordinates')
-        mesh.update_nodes(self.context(), self.region(), trans_nodes.tolist(), 'reference_coordinates')
+        mesh.update_nodes(self.context(), self._region_linear, trans_nodes.tolist(), 'coordinates')
+        mesh.update_nodes(self.context(), self._region_linear, trans_nodes.tolist(), 'reference_coordinates')
 
         return restore
     
     def create_data_undo(self):
         # save the original data state
-        data_list = mesh.data_to_list(self.context(), self.region(), 3, 'data_coordinates')
+        data_list = mesh.data_to_list(self.context(), self._region_linear, 3, 'data_coordinates')
         
         def restore(data):
-            mesh.update_data(self.context(), self.region(), data, 'data_coordinates')
+            mesh.update_data(self.context(), self._region_linear, data, 'data_coordinates')
         undo = partial(restore, data_list)
         return undo
         
     def _create_nodes_undo(self, coordinateFieldName):
         # save the nodes state
-        nodes = mesh.nodes_to_list(self.context(), self.region(), 3, coordinateFieldName)
+        nodes = mesh.nodes_to_list(self.context(), self._region_linear, 3, coordinateFieldName)
         
         def restore(data):
-            mesh.update_nodes(self.context(), self.region(), nodes, coordinateFieldName)
+            mesh.update_nodes(self.context(), self._region_linear, nodes, coordinateFieldName)
         undo = partial(restore, nodes)
         return undo
 
@@ -150,7 +152,7 @@ class Fitter(object):
         
         undo = self.create_data_undo()
         
-        data_list = mesh.data_to_list(self.context(), self.region(), 3, 'data_coordinates')
+        data_list = mesh.data_to_list(self.context(), self._region_linear, 3, 'data_coordinates')
                     
         t = np.identity(3)
         t[axis, axis] = -1
@@ -170,9 +172,23 @@ class Fitter(object):
         else:
             data_list = mirrored
 
-        mesh.update_data(self.context(), self.region(), data_list.tolist(), 'data_coordinates')
+        mesh.update_data(self.context(), self._region_linear, data_list.tolist(), 'data_coordinates')
         
         return undo
+
+    def convert_to_cubic(self):
+        region_cubic = self.region().createChild("cubic_lagrange")
+        self._region_cubic = region_cubic
+        #region_cubic.setName("cubic_lagrange")
+        
+        nodes = mesh.nodes_to_list(self.context(), self._region_linear)
+        
+        mesh.linear_to_cubic(self.context(), region_cubic, nodes, self._elements_linear,
+                             coordinate_field_name=[self._coords_name, self._ref_coords_name])
+        
+        self._cubic_graphics = self._create_graphics_mesh(region_cubic, self._coords_name, colour='bone')
+        
+        self._cubic_graphics_ref = self._create_graphics_mesh(region_cubic, self._ref_coords_name, colour='blue')
 
 
     def project(self):
@@ -501,25 +517,42 @@ class Fitter(object):
         # update if only show_fitted is called.
         # self.show_reference()
         # self.show_fitted()
-    
-    def _setGraphicsCoordinates(self, coordinate_field):
-        with get_scene(self.context().getDefaultRegion()) as scene:
-            for name in ['nodes', 'lines', 'surfaces']:
-                graphics = scene.findGraphicsByName(name)
-                graphics.setCoordinateField(coordinate_field)
-        
-    def show_reference(self, state):
+
+#     def _setGraphicsCoordinates(self, coordinate_field):
+#         with get_scene(self.context().getDefaultRegion()) as scene:
+#             for name in ['nodes', 'lines', 'surfaces']:
+#                 graphics = scene.findGraphicsByName(name)
+#                 graphics.setCoordinateField(coordinate_field)
+
+    def show_data(self, state):
 #         self._setGraphicsCoordinates(self._reference_coordinates)
 #         self._fittedVisible = False
         
-        for g in self._reference_graphics + self._reference_node_graphics:
+        for g in self._data_graphics:
+            g.setVisibilityFlag(state)
+
+    def show_initial(self, state):
+#         self._setGraphicsCoordinates(self._reference_coordinates)
+#         self._fittedVisible = False
+        
+        for g in self._initial_graphics_ref:
             g.setVisibilityFlag(state)
         
+    # FIXME: We don't need a fitted mesh for the initial graphics
     def show_fitted(self, state):
 #         self._setGraphicsCoordinates(self._coordinates)
 #         self._fittedVisible = True
-        for g in self._fitted_graphics + self._fitted_node_graphics:
+        for g in self._initial_graphics:
             g.setVisibilityFlag(state)
+
+    def show_reference_cubic(self, state):
+        for g in self._cubic_graphics_ref:
+            g.setVisibilityFlag(state)
+        
+    def show_fitted_cubic(self, state):
+        for g in self._cubic_graphics:
+            g.setVisibilityFlag(state)
+            
         
 #     # This is a hack to force the view to update. It should not be
 #     # necessary but I don't know the right way to do it.
@@ -547,54 +580,85 @@ class Fitter(object):
             # FIXME: log diagnostics
             raise ex
         ctxt = self.context()
-        region = ctxt.getDefaultRegion()
+        region = self.region().createChild("linear")
+        self._region_linear = region
+
+        self._coords_name = 'coordinates'
+        self._ref_coords_name = 'reference_coordinates'
         
         # returns a python list
         datapoints = mesh.read_txtnode(record['data'])
         mesh.create_data_points(ctxt, region, datapoints)
+        self._data_graphics = self._create_graphics_data(region, self._coords_name)
         
         nodes = mesh.read_txtnode(record['nodes'])
         
         elems = mesh.read_txtelem(record['elems'])
+        self._elements_linear = elems
                 
-        coords = 'coordinates'
-        ref_coords = 'reference_coordinates'
         
         mesh.linear_mesh(ctxt, region, nodes, elems,
-                         coordinate_field_name=coords)
+                         coordinate_field_name=self._coords_name)
         
         # Load the mesh again, this time merging with the previous mesh
         # and renaming the coordinate field to reference_coordinates.
         # This adds another set of coordinates at each node.
         mesh.linear_mesh(ctxt, region, nodes, elems,
-                         coordinate_field_name=ref_coords, merge=True)
-
-        self._datapoint_graphics = graphics.createDatapointGraphics(ctxt, datapoints_name='data')
-        
-        self._fitted_node_graphics = graphics.createNodeGraphics(ctxt, nodes_name='nodes',
-                                 coordinate_field_name=coords)
-        
-        self._fitted_graphics = graphics.createSurfaceGraphics(ctxt,
-                                   surfaces_name='surfaces',
-                                   lines_name='lines',
-                                   coordinate_field_name=coords)
-        
-        self._reference_node_graphics = graphics.createNodeGraphics(ctxt, nodes_name='nodes',
-                                 coordinate_field_name=coords)
-
-        self._reference_graphics = graphics.createSurfaceGraphics(ctxt,
-                                   surfaces_name='ref_surfaces',
-                                   lines_name='ref_lines',
-                                   coordinate_field_name=ref_coords,
-                                   colour="green")
+                         coordinate_field_name=self._ref_coords_name, merge=True)
+    
+        self._initial_graphics = self._create_graphics_mesh(region, self._coords_name)
+        self._initial_graphics_ref = self._create_graphics_mesh(region, self._ref_coords_name, colour="green")
         
         self.meshLoaded()
+        
+    def _create_graphics_data(self, region, coords_field, **kwargs):
+        ctxt = self.context()
+        mygraphics = graphics.createDatapointGraphics(ctxt, region, datapoints_name='data')
+        return mygraphics
+
+    def _create_graphics_mesh(self, region, coords_field, **kwargs):
+        ctxt = self.context()
+        
+        mygraphics = []
+        
+        colour = kwargs.get("colour", "white")
+        
+        mygraphics.extend(graphics.createNodeGraphics(ctxt,
+                                        region,
+                                        nodes_name='nodes',
+                                        coordinate_field_name=coords_field,
+                                        colour=colour))
+        
+        mygraphics.extend(
+            graphics.createSurfaceGraphics(ctxt,
+                                           region,
+                                           surfaces_name='surfaces',
+                                           lines_name='lines',
+                                           coordinate_field_name=coords_field,
+                                           colour=colour))
+        
+#         graphics.append(
+#             graphics.createNodeGraphics(ctxt,
+#                                         region,
+#                                         nodes_name='nodes',
+#                                         coordinate_field_name=ref_coords_field))
+# 
+#         graphics.append(
+#             graphics.createSurfaceGraphics(ctxt,
+#                                            region,
+#                                            surfaces_name='ref_surfaces',
+#                                            lines_name='ref_lines',
+#                                            coordinate_field_name=ref_coords_field,
+#                                            colour="green"))
+        
+        return mygraphics
         
     def save_problem(self, path):
         # There are 2 parts to this: one is the fields and data, the
         # other is the visualisation
         # How do we save the visualisation?
-        pass
+        self.region().writeFile(str(path))
+
         # extract nodes and datapoints as text
         # extract elements as text
         # create object to store the names and save as json 
@@ -654,7 +718,7 @@ class Fitter(object):
 
     def SaveState(self):
         state = None
-        region.writeFile("state.exregi")
+        self.region().writeFile("state.exregi")
 
         return state
         
