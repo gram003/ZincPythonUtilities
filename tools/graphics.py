@@ -42,7 +42,10 @@ def createDatapointGraphics(ctxt, region, **kwargs):
 
     materials_module = ctxt.getMaterialmodule()
     materials_module.defineStandardMaterials()
-    green = materials_module.findMaterialByName('green')
+
+    colour = kwargs.get('colour', 'green')
+    materials_module = ctxt.getMaterialmodule()
+    mat = materials_module.findMaterialByName(colour)
 
     field_module = region.getFieldmodule()
 
@@ -54,7 +57,7 @@ def createDatapointGraphics(ctxt, region, **kwargs):
         diamonds.setFieldDomainType(Field.DOMAIN_TYPE_DATAPOINTS)
         att = diamonds.getGraphicspointattributes()
         att.setGlyphShapeType(Glyph.SHAPE_TYPE_DIAMOND)
-        diamonds.setMaterial(green)
+        diamonds.setMaterial(mat)
         
         base_size = kwargs.get('datapoints_size', 1)
         att.setBaseSize(base_size)
@@ -70,8 +73,8 @@ def createDatapointGraphics(ctxt, region, **kwargs):
         datapoints_name = kwargs.get('datapoints_name')
         if datapoints_name:
             diamonds.setName(datapoints_name)
-            
-    return (diamonds)
+    # returning a tuple to make it consistent with createSurfaceGraphics
+    return (diamonds, )
 
 
 def createNodeGraphics(ctxt, region, **kwargs):
@@ -89,6 +92,10 @@ def createNodeGraphics(ctxt, region, **kwargs):
             coordinate_field_name = 'coordinates'
         finite_element_field = field_module.findFieldByName(coordinate_field_name)
     
+        colour = kwargs.get('colour', 'white')
+        materials_module = ctxt.getMaterialmodule()
+        mat = materials_module.findMaterialByName(colour)
+
     #     # Diagnositics    
     #     fm = field_module
     #     sNodes = fm.findNodesetByName('nodes')
@@ -114,7 +121,10 @@ def createNodeGraphics(ctxt, region, **kwargs):
     
         if 'nodes_name' in kwargs:
             spheres.setName(kwargs['nodes_name'])
+        
+        spheres.setMaterial(mat)
             
+    # returning a tuple to make it consistent with createSurfaceGraphics
     return (spheres, )  
 
 
@@ -141,22 +151,24 @@ def createSurfaceGraphics(ctxt, region, **kwargs):
         else:
             coordinate_field_name = 'coordinates'
         finite_element_field = field_module.findFieldByName(coordinate_field_name)
+
+        colour = kwargs.get('colour', 'white')
+        materials_module = ctxt.getMaterialmodule()
+        mat = materials_module.findMaterialByName(colour)
          
         # Create line graphics
         lines = scene.createGraphicsLines()
         lines.setCoordinateField(finite_element_field)
         if 'lines_name' in kwargs:
             lines.setName(kwargs['lines_name'])
+        lines.setMaterial(mat)
          
         surfaces = scene.createGraphicsSurfaces()
         surfaces.setCoordinateField(finite_element_field)
         if 'surfaces_name' in kwargs:
             surfaces.setName(kwargs['surfaces_name'])
      
-        if 'colour' in kwargs:
-            surfaces.setName(kwargs['surfaces_name'])
-            materials_module = ctxt.getMaterialmodule()
-            green = materials_module.findMaterialByName('green')
-            surfaces.setMaterial(green)
+        surfaces.setName(kwargs['surfaces_name'])
+        surfaces.setMaterial(mat)
             
     return (lines, surfaces)
