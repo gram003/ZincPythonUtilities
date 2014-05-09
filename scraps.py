@@ -64,3 +64,30 @@ def create3DFiniteElement(self, field_module, finite_element_field, node_coordin
 # #             dt = gr.getFieldDomainType()
 # #             print(name, dt, gr.getCoordinateField().getName())
 # #             gr = scene.getNextGraphics(gr)
+
+# Print visibility of graphics
+#         s = region_cubic.getScene()
+#         print funcname(), "scene visible", s.getVisibilityFlag()
+#         s.setVisibilityFlag(True)
+#         g = s.getFirstGraphics()
+#         while g.isValid():
+#             print funcname(), "visible", g.getVisibilityFlag()
+#             #g.setVisibilityFlag(True)
+#             g = s.getNextGraphics(g)
+
+
+#         # linear search for finding nodes- too slow
+#         def find_node(coords):
+#             node_iter = nodeset.createNodeiterator()
+#             node = node_iter.next()
+#             found_node_id = None
+#             while node.isValid():
+#                 fc.setNode(node)
+#                 result, outValues = coordinates.evaluateReal(fc, 3)
+#                 if result != OK:
+#                     raise RuntimeError("Failed evaluating node %d", node.getIdentifier())
+#                 if np.allclose(np.array(outValues), np.array(coords)):
+#                     found_node_id = node.getIdentifier()
+#                     break
+#                 node = node_iter.next()
+#             return found_node_id
