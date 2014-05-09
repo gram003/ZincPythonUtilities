@@ -7,9 +7,15 @@ from tools.utilities import get_field_module
 
 from tools.diagnostics import funcname
 
-def _coordinate_field(ctxt, region, coordinate_set, nodeset_type, coordinate_field_name, merge=False):
+def _coordinate_field(ctxt, region, coordinate_set, nodeset_type,
+                      coordinate_field_name=['coordinates'], merge=False):
     '''
     Create a coordinate field given a coordinate list.
+    param: region the region
+    param: coordinate_set a list of the nodal coordinates
+    param: nodeset_type either 'nodes' or 'datapoints'
+    param: coordinate_field_name the name or list of names of the coordinate field(s) 
+    param: merge wether to merge this coordinate set into an existing node
     Returns the nodeset
     '''
 
@@ -17,23 +23,32 @@ def _coordinate_field(ctxt, region, coordinate_set, nodeset_type, coordinate_fie
         raise RuntimeError("Empty node list") 
     
     if not nodeset_type in ['nodes', 'datapoints']:
-        raise RuntimeError("Invalid nodeset type") 
+        raise RuntimeError("Invalid nodeset type %s, expected 'nodes' or 'datapoints'" % nodeset_type) 
 
+    if isinstance(coordinate_field_name, list):
+        coordinate_fields = coordinate_field_name
+    else:
+        coordinate_fields = [coordinate_field_name] 
+        
+    finite_element_fields = []
+    
     coord_count = len(coordinate_set[0])
         
     # Get the field module for root region, with which we  shall create a 
     # finite element coordinate field.
     with get_field_module(region) as field_module:
-    
-        finite_element_field = field_module.createFieldFiniteElement(coord_count)
-        finite_element_field.setName(coordinate_field_name)
         
         # Find a special node set named 'nodes' or 'datapoints'
         nodeset = field_module.findNodesetByName(nodeset_type)
         node_template = nodeset.createNodetemplate()
-    
-        # Set the finite element coordinate field for the nodes to use
-        node_template.defineField(finite_element_field)
+
+        for name in coordinate_fields:
+            finite_element_field = field_module.createFieldFiniteElement(coord_count)
+            finite_element_field.setName(name)
+                # Set the finite element coordinate field for the nodes to use
+            node_template.defineField(finite_element_field)
+            finite_element_fields.append(finite_element_field)
+        
         field_cache = field_module.createFieldcache()
         
         node_id = 1
@@ -44,15 +59,21 @@ def _coordinate_field(ctxt, region, coordinate_set, nodeset_type, coordinate_fie
                 # Set the node coordinates, first set the field cache to use the current node
                 field_cache.setNode(node)
                 # Pass in floats as an array
-                finite_element_field.assignReal(field_cache, coords)
+                for finite_element_field in finite_element_fields:
+                    finite_element_field.assignReal(field_cache, coords)
             else:
                 node = nodeset.findNodeByIdentifier(node_id)
-                field_cache.setNode(node)
-                node.merge(node_template)
-                finite_element_field.assignReal(field_cache, coords)
-                node_id += 1
+                if node.isValid():
+                    field_cache.setNode(node)
+                    node.merge(node_template)
+                    for finite_element_field in finite_element_fields:
+                        finite_element_field.assignReal(field_cache, coords)
+                    node_id += 1
+                else:
+                    raise RuntimeError("Invalid node with id%d" % node_id)
                 
-        finite_element_field.setTypeCoordinate(True)
+        for finite_element_field in finite_element_fields:
+            finite_element_field.setTypeCoordinate(True)
             
         return nodeset
 
@@ -78,9 +99,16 @@ def _lagrange_mesh(ctxt, region, basis_order, node_coordinate_set, element_set, 
     # Parse kwargs    
     coordinate_field_name = kwargs.get('coordinate_field_name', 'coordinates')
     merge = kwargs.get('merge', False)
-    
+
+    if isinstance(coordinate_field_name, list):
+        coordinate_fields = coordinate_field_name
+    else:
+        coordinate_fields = [coordinate_field_name] 
+
     use_existing_nodes = kwargs.get('use_existing_nodes', False)
 
+    #coord_fields = kwargs.get('coordinate_field_list', [])
+    
     if len(element_set) == 0:
         raise RuntimeError("Empty element list") 
 
@@ -94,7 +122,7 @@ def _lagrange_mesh(ctxt, region, basis_order, node_coordinate_set, element_set, 
             if not nodeset.isValid():
                 raise RuntimeError("The node list was empty and could not find a nodeset in the given region")
         else:
-            nodeset = _coordinate_field(ctxt, region, node_coordinate_set, 'nodes', coordinate_field_name, merge)
+            nodeset = _coordinate_field(ctxt, region, node_coordinate_set, 'nodes', coordinate_fields, merge)
     
         # Create and configure an element template for the appropriate mesh type.
         element_node_count = len(element_set[0])
@@ -125,11 +153,12 @@ def _lagrange_mesh(ctxt, region, basis_order, node_coordinate_set, element_set, 
         
         # Define a nodally interpolated element field or field component in the
         # element_template
-        finite_element_field = field_module.findFieldByName(coordinate_field_name)
-        element_template.defineFieldSimpleNodal(finite_element_field,
-                                                -1,
-                                                basis,
-                                                local_indices)
+        for coordinate_field_name in coordinate_fields:
+            finite_element_field = field_module.findFieldByName(coordinate_field_name)
+            element_template.defineFieldSimpleNodal(finite_element_field,
+                                                    -1,
+                                                    basis,
+                                                    local_indices)
 
         # create the elements
         element_id = 1
@@ -150,9 +179,6 @@ def _lagrange_mesh(ctxt, region, basis_order, node_coordinate_set, element_set, 
                 element.merge(element_template)
 
             element_id += 1
-            
-
-        finite_element_field.setTypeCoordinate(True) 
 
         field_module.defineAllFaces() 
 
@@ -182,7 +208,7 @@ def create_nodes(ctxt, region, coordinate_set, field_name='coordinates', merge=F
     
     return nodeset
 
-def linear_to_cubic(ctxt, region_linear, region_cubic, nodes, elements, field_name='coordinates', tol=1e-4):
+def linear_to_cubic(ctxt, region_cubic, nodes, elements, tol=1e-4, **kwargs):
     """
     Convert a 3D linear mesh to cubic Lagrange 
     """
@@ -206,27 +232,38 @@ def linear_to_cubic(ctxt, region_linear, region_cubic, nodes, elements, field_na
     # http://toblerity.org/rtree/
     from rtree import index
     
-    # create a linear mesh in the given region
-    linear_mesh(ctxt, region_linear, nodes, elements)
+    coordinate_field_name = kwargs.get('coordinate_field_name', 'coordinates')
+
+    if isinstance(coordinate_field_name, list):
+        coordinate_fields = coordinate_field_name
+    else:
+        coordinate_fields = [coordinate_field_name] 
+
+    #merge = kwargs.get('merge', False)
+    
+    # Create a linear mesh in a temporary region for interpolating the nodal positions
+    region_linear = region_cubic.createChild("temporary")
+    
+    linear_mesh(ctxt, region_linear, nodes, elements, coordinate_field_name=coordinate_fields[0])
     
     with get_field_module(region_linear) as d_fm, \
                                 get_field_module(region_cubic) as fm:
-        d_coordinates = d_fm.findFieldByName(field_name)
+        lin_coordinates = d_fm.findFieldByName(coordinate_fields[0])
         d_fc = d_fm.createFieldcache()
         
         # Copy the nodes from the linear mesh into the new region, these will
         # become the corner nodes of the cubic Lagrange mesh.
         nodes = nodes_to_list(ctxt, region_linear)
-        create_nodes(ctxt, region_cubic, nodes)
+        create_nodes(ctxt, region_cubic, nodes, coordinate_fields)
                 
         # precompute the xi coordinates
         xi = np.linspace(0, 1, 4)
 
-        # iterate over the elements in the linear mesh
+        # iterate over the elements in the temporary linear mesh
         initial_mesh = d_fm.findMeshByDimension(3)
         
         # coords field and cache for the new field
-        coordinates = fm.findFieldByName(field_name)
+        #coordinates = fm.findFieldByName(coordinate_fields[0])
         fc = fm.createFieldcache()
 
         # Create a 3D Rtree
@@ -239,26 +276,15 @@ def linear_to_cubic(ctxt, region_linear, region_cubic, nodes, elements, field_na
             idx3d.insert(i+1, n + n)
             #print "added node", i+1, n
 
+        finite_element_fields = []
+
         # Create a template for defining new nodes
         nodeset = fm.findNodesetByName('nodes')
         node_template = nodeset.createNodetemplate()
-        node_template.defineField(coordinates)
-        
-#         # linear search - too slow
-#         def find_node(coords):
-#             node_iter = nodeset.createNodeiterator()
-#             node = node_iter.next()
-#             found_node_id = None
-#             while node.isValid():
-#                 fc.setNode(node)
-#                 result, outValues = coordinates.evaluateReal(fc, 3)
-#                 if result != OK:
-#                     raise RuntimeError("Failed evaluating node %d", node.getIdentifier())
-#                 if np.allclose(np.array(outValues), np.array(coords)):
-#                     found_node_id = node.getIdentifier()
-#                     break
-#                 node = node_iter.next()
-#             return found_node_id
+        for field_name in coordinate_fields:
+            finite_element_field = fm.findFieldByName(field_name)
+            node_template.defineField(finite_element_field)
+            finite_element_fields.append(finite_element_field)
 
         ele_count = 0
         cubic_elements = []
@@ -277,28 +303,31 @@ def linear_to_cubic(ctxt, region_linear, region_cubic, nodes, elements, field_na
                     for xi1 in xi:
                         # print "xi", xi1, xi2, xi3
                         d_fc.setMeshLocation(element, [xi1, xi2, xi3])
-                        result, outValues = d_coordinates.evaluateReal(d_fc, 3)
+                        result, outValues = lin_coordinates.evaluateReal(d_fc, 3)
+                        # add a tolerance to the search area
                         bb = np.array(outValues)
                         bb_min = bb - tol
                         bb_max = bb + tol
                         #print bb, bb_min, bb_max
+                        # Find the node in the kDtree
                         found = list(idx3d.intersection(bb_min.tolist() + bb_max.tolist()))
                         # print "found", found, "at", outValues
                         if len(found) == 0:
                             node_id = None
                         else:
                             node_id = found[0]
-                            # print "found node", node_id
+                            #print "found node", node_id
                             
                         if node_id == None:
                             #create a new node
                             new_node = nodeset.createNode(-1, node_template)
                             fc.setNode(new_node)
                             # Pass in floats as an array
-                            coordinates.assignReal(fc, outValues)
+                            for finite_element_field in finite_element_fields:
+                                finite_element_field.assignReal(fc, outValues)
                             
                             node_id = new_node.getIdentifier()
-                            idx3d.insert(node_id, n + n)
+                            idx3d.insert(node_id, outValues + outValues)
                             # print "created node", node_id  
 
                         new_element.append(node_id)
@@ -306,8 +335,10 @@ def linear_to_cubic(ctxt, region_linear, region_cubic, nodes, elements, field_na
             element = el_iter.next()
             cubic_elements.append(new_element)
 
+        region_cubic.removeChild(region_linear)
+
         # The nodes have already been added to the region so use these existing nodes
-        cubic_lagrange_mesh(ctxt, region_cubic, [], cubic_elements)
+        cubic_lagrange_mesh(ctxt, region_cubic, [], cubic_elements, coordinate_field_name=coordinate_fields, merge=False)
 
 
 def _nodes_to_list(ctxt, region, nodesetName, numValues=3, coordFieldName='coordinates'):
@@ -336,11 +367,16 @@ def _nodes_to_list(ctxt, region, nodesetName, numValues=3, coordFieldName='coord
 
 def _update_nodes(ctxt, region, coordinate_set, nodesetName, coordFieldName='coordinates'):
     """
-    Update nodes with the coordinates in the given coordinate_set.
+    Update nodes with the coordinates in the given coordinate_set (as a Python List).
     """
     fm = region.getFieldmodule()
     sNodes = fm.findNodesetByName(nodesetName)
     field = fm.findFieldByName(coordFieldName)
+    
+    num_nodes = sNodes.getSize()
+    if num_nodes != len(coordinate_set):
+        raise RuntimeError("Update list must have the same number of nodes as the nodeset. Got %d nodeset has %d."
+                           % (len(coordinate_set), num_nodes))
     
     # Update nodes with new coordinates 
     with get_field_module(region) as fm:
