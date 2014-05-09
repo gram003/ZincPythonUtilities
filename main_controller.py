@@ -74,11 +74,20 @@ class MainController(object):
     # View type
     #
     
+    def view_data(self, state):
+        self._model.show_data(state)
+
     def view_reference(self, state):
-        self._model.show_reference(state)
+        self._model.show_initial(state)
     
     def view_fitted(self, state):
         self._model.show_fitted(state)
+
+    def view_reference_cubic(self, state):
+        self._model.show_reference_cubic(state)
+    
+    def view_fitted_cubic(self, state):
+        self._model.show_fitted_cubic(state)
 
     #
     # Selection mode
@@ -113,7 +122,10 @@ class MainController(object):
     #
     # Fitting
     #
-    
+
+    def convert_to_cubic(self):
+        self._model.convert_to_cubic()
+
     def project(self):
         self._model.project()
 

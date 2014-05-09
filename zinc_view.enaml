@@ -94,6 +94,11 @@ enamldef MyMenuBar(MenuBar): mb:
             separator = True
 #         ActionGroup:
         Action:
+            text = 'Data'
+            triggered :: controller.view_data(checked)
+            checkable = True 
+            checked = True
+        Action:
             text = 'Reference'
             triggered :: controller.view_reference(checked)
             checkable = True 
@@ -101,6 +106,16 @@ enamldef MyMenuBar(MenuBar): mb:
         Action:
             text = 'Fitted'
             triggered :: controller.view_fitted(checked) 
+            checkable = True
+            checked = True
+        Action:
+            text = 'Cubic reference'
+            triggered :: controller.view_reference_cubic(checked) 
+            checkable = True
+            checked = True
+        Action:
+            text = 'Cubic fitted'
+            triggered :: controller.view_fitted_cubic(checked) 
             checkable = True
             checked = True
 
@@ -185,6 +200,12 @@ enamldef FitDockPane(DockPane):
                 text = 'Select faces'
                 clicked :: controller.select_faces()
         GroupBox:
+            PushButton:
+    #             Action:
+    #                 checkable = True
+                    text = 'Convert to cubic'
+                    clicked :: controller.convert_to_cubic()
+                    tool_tip = "Convert the mesh to cubic Lagrange"
             PushButton:
     #             Action:
     #                 checkable = True
