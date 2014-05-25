@@ -109,6 +109,11 @@ enamldef MyMenuBar(MenuBar): mb:
             checkable = True
             checked = True
         Action:
+            text = 'Cubic data'
+            triggered :: controller.view_data_cubic(checked) 
+            checkable = True
+            checked = True
+        Action:
             text = 'Cubic reference'
             triggered :: controller.view_reference_cubic(checked) 
             checkable = True

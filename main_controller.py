@@ -83,6 +83,9 @@ class MainController(object):
     def view_fitted(self, state):
         self._model.show_fitted(state)
 
+    def view_data_cubic(self, state):
+        self._model.show_data_cubic(state)
+
     def view_reference_cubic(self, state):
         self._model.show_reference_cubic(state)
     

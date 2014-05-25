@@ -45,8 +45,12 @@ class Fitter(object):
         self._graphicsProjectedPoints = None
         self._graphicsErrorLines = None
 
-        self._fittedVisible = True
+        #self._fittedVisible = True
         
+        self._cubic_graphics_data = []
+        self._cubic_graphics_ref = []
+        self._cubic_graphics = []
+
     def context(self):
         return self._context
     
@@ -67,9 +71,10 @@ class Fitter(object):
         
     def meshLoaded(self):
         fm = self._region_linear.getFieldmodule()
-        self._coordinates = fm.findFieldByName('coordinates')
-        self._reference_coordinates = fm.findFieldByName('reference_coordinates')
-        self._data_coordinates = fm.findFieldByName('data_coordinates')
+
+#         self._coordinates = fm.findFieldByName('coordinates')
+#         self._reference_coordinates = fm.findFieldByName('reference_coordinates')
+#         self._data_coordinates = fm.findFieldByName('data_coordinates')
         
 #         scene_viewer_module = self._context.getSceneviewermodule()
 # 
@@ -101,7 +106,7 @@ class Fitter(object):
         # print node_list
         n = np.array(node_list)
         
-        data_list = mesh.data_to_list(self.context(), self._region_linear, 3, 'data_coordinates')
+        data_list = mesh.data_to_list(self.context(), self._region_linear, 3, self._data_coords_name)
         # print data_list
         d = np.array(data_list)
         
@@ -120,10 +125,10 @@ class Fitter(object):
     
     def create_data_undo(self):
         # save the original data state
-        data_list = mesh.data_to_list(self.context(), self._region_linear, 3, 'data_coordinates')
+        data_list = mesh.data_to_list(self.context(), self._region_linear, 3, self._data_coords_name)
         
         def restore(data):
-            mesh.update_data(self.context(), self._region_linear, data, 'data_coordinates')
+            mesh.update_data(self.context(), self._region_linear, data, self._data_coords_name)
         undo = partial(restore, data_list)
         return undo
         
@@ -152,7 +157,7 @@ class Fitter(object):
         
         undo = self.create_data_undo()
         
-        data_list = mesh.data_to_list(self.context(), self._region_linear, 3, 'data_coordinates')
+        data_list = mesh.data_to_list(self.context(), self._region_linear, 3, self._data_coords_name)
                     
         t = np.identity(3)
         t[axis, axis] = -1
@@ -172,7 +177,7 @@ class Fitter(object):
         else:
             data_list = mirrored
 
-        mesh.update_data(self.context(), self._region_linear, data_list.tolist(), 'data_coordinates')
+        mesh.update_data(self.context(), self._region_linear, data_list.tolist(), self._data_coords_name)
         
         return undo
 
@@ -186,10 +191,15 @@ class Fitter(object):
         mesh.linear_to_cubic(self.context(), region_cubic, nodes, self._elements_linear,
                              coordinate_field_name=[self._coords_name, self._ref_coords_name])
         
+        # copy the data to the cubic region for fitting
+        data = mesh.data_to_list(self.context(), self._region_linear, 3)
+        mesh.create_data_points(self.context(), region_cubic, data)
+        
         self._cubic_graphics = self._create_graphics_mesh(region_cubic, self._coords_name, colour='bone')
         
         self._cubic_graphics_ref = self._create_graphics_mesh(region_cubic, self._ref_coords_name, colour='blue')
 
+        self._cubic_graphics_data = self._create_graphics_data(region_cubic, self._data_coords_name)
 
     def project(self):
         # project selected data points onto selected faces
@@ -302,7 +312,7 @@ class Fitter(object):
             
             mesh2d = fm.findMeshByDimension(2)
                     
-            data_coordinates = fm.findFieldByName('data_coordinates')
+            data_coordinates = fm.findFieldByName(self._data_coords_name)
             coordinates = fm.findFieldByName('coordinates')
             
             self._found_location = fm.createFieldFindMeshLocation(data_coordinates, coordinates, gmFaces)
@@ -316,7 +326,7 @@ class Fitter(object):
             # region.writeFile("junk_region.exreg")
     
             dataNodeset = fm.findNodesetByFieldDomainType(Field.DOMAIN_TYPE_DATAPOINTS)
-            gfDataCoords = fm.findFieldByName('data_coordinates').castGroup()
+            gfDataCoords = fm.findFieldByName(self._data_coords_name).castGroup()
             y = data_coordinates.castGroup()
             
     #         self._gnfData = gfDataCoords.getFieldNodeGroup(dataNodeset)
@@ -367,20 +377,19 @@ class Fitter(object):
             
             # del self._projected_coordinates
             # del self._error_vector
-            self._projected_coordinates = fm.createFieldEmbedded(self._coordinates, self._stored_location)
-            self._error_vector = fm.createFieldSubtract(self._projected_coordinates, self._data_coordinates)
+            coords = fm.findFieldByName(self._coords_name)
+            self._projected_coordinates = fm.createFieldEmbedded(coords, self._stored_location)
+            data_coords = fm.findFieldByName(self._data_coords_name)
+            self._error_vector = fm.createFieldSubtract(self._projected_coordinates, data_coords)
             
-            self._createProjectionGraphics()
+            self._createProjectionGraphics(region)
         
-    def _createProjectionGraphics(self):
+    def _createProjectionGraphics(self, region):
         materials_module = self.context().getMaterialmodule()
         materials_module.defineStandardMaterials()
         blue = materials_module.findMaterialByName('blue')
-
-        default_region = self.context().getDefaultRegion()
-        # Get the scene for the default region to create the visualisation in.
         
-        with get_scene(default_region) as scene:
+        with get_scene(region) as scene:
         
             # projected points
             if not self._graphicsProjectedPoints is None:
@@ -411,9 +420,7 @@ class Fitter(object):
             attr.setScaleFactors([-1, 0, 0])
         
     def fit(self):
-        
-        region = self.context().getDefaultRegion()
-        
+        region = self._region_cubic
         region.writeFile("before.exregi")
         
 #         self._defineOptimisationFields(root_region)
@@ -422,101 +429,98 @@ class Fitter(object):
 #         Define the outside surface fit objective field and the volume smoothing
 #         objective field.
 #         '''
-        fm = region.getFieldmodule()
-        # self._projected_coordinates = fm.createFieldEmbedded(self._coordinates, self._stored_location)
-        # self._error_vector = fm.createFieldSubtract(self._projected_coordinates, self._data_coordinates)
-        data_nodeset_group = self._gnfData.getNodesetGroup()
-        self._outside_surface_fit_objective = fm.createFieldNodesetSumSquares(self._error_vector, data_nodeset_group)
-        print "self._outside_surface_fit_objective", self._outside_surface_fit_objective
-        
-        # Diagnostics: print out data point ids
-        if __debug__: 
-            print "Data point ids"
-            dp_iter = data_nodeset_group.createNodeiterator()
-            node = dp_iter.next()
-            while node.isValid():
-                node_id = node.getIdentifier()
-                print node_id,
+        with get_field_module(region) as fm:
+            # self._projected_coordinates = fm.createFieldEmbedded(self._coordinates, self._stored_location)
+            # self._error_vector = fm.createFieldSubtract(self._projected_coordinates, self._data_coordinates)
+            data_nodeset_group = self._gnfData.getNodesetGroup()
+            self._outside_surface_fit_objective = fm.createFieldNodesetSumSquares(self._error_vector, data_nodeset_group)
+            print "self._outside_surface_fit_objective", self._outside_surface_fit_objective
+            
+            # Diagnostics: print out data point ids
+            if __debug__: 
+                print "Data point ids"
+                dp_iter = data_nodeset_group.createNodeiterator()
                 node = dp_iter.next()
-            print
-        
-            print "RMS error"
+                while node.isValid():
+                    node_id = node.getIdentifier()
+                    print node_id,
+                    node = dp_iter.next()
+                print
+            
+                print "RMS error"
+                # Diagnostics: compute RMS error
+                field = self._outside_surface_fit_objective
+                cache = fm.createFieldcache()
+                dp_iter = data_nodeset_group.createNodeiterator()
+                dp = dp_iter.next()
+                while dp.isValid():
+                    cache.setNode(dp)
+                    result, outValues = field.evaluateReal(cache, 3)
+                    print result, np.sum(outValues)
+                    dp = dp_iter.next()
+                
+                # Diagnostics write out node file.
+                # use createStreamInformation to only write out nodes
+                # use region.writeFile()
+    
+    
+    #         gauss_coordinates = fm.createEmbedded(self._coordinates, self._gauss_location)
+    #         xi = fm.findFieldByName('xi')
+    #         dX_dxi = fm.createFieldGradient(self._reference_coordinates, xi)
+    #         dV = fm.createFieldDeterminant(dX_dxi)
+    #          
+    #         displacement = fm.createFieldSubtract(self._coordinates, self._reference_coordinates)
+    #         two_fields = [fm.createFieldComponent(displacement, 1), fm.createFieldComponent(displacement, 2)]
+    #         displacement_xy = fm.createFieldConcatenate(two_fields)
+    #         displacement_gradient = fm.createFieldGradient(displacement_xy, self._reference_coordinates)
+    #         gauss_displacement_gradient = fm.createFieldEmbedded(displacement_gradient, self._gauss_location)
+    #         gauss_dV = fm.createFieldEmbedded(dV, self._gauss_location)
+    #         gauss_weight_dV = fm.createFieldMultiply(self._gauss_weight, gauss_dV)
+    #         alpha = fm.createFieldConstant([20])
+    #         weight = fm.createFieldMultiply(gauss_weight_dV, alpha)
+    #         scaled_gauss_displacement_gradient = fm.createFieldMultiply(gauss_displacement_gradient, weight)
+    #          
+    #         self._volume_smoothing_objective = fm.createFieldNodesetSumSquares(scaled_gauss_displacement_gradient, self._gauss_points_nodeset)       
+    
+    #         self._defineOptimisation(root_region)
+    #     def _defineOptimisation(self, region):
+    #         '''
+    #         Define the optimisation field.  Set a least squares quasi newton
+    #         optimisation method for one iteration.  We also add the objective field
+    #         and independent field to the optimisation
+    #         '''
+                
+            self._opt = fm.createOptimisation()
+            self._opt.setMethod(Optimisation.METHOD_LEAST_SQUARES_QUASI_NEWTON)
+            self._opt.addObjectiveField(self._outside_surface_fit_objective)
+            # self._opt.addObjectiveField(self._volume_smoothing_objective)
+            coords = fm.findFieldByName('coordinates')
+            self._opt.addIndependentField(coords)
+            self._opt.setAttributeInteger(Optimisation.ATTRIBUTE_MAXIMUM_ITERATIONS, 1)
+             
+            print funcname(), "starting optimisation"
+            self._opt.optimise()
+            print funcname(), "finished optimisation"
+    
+            # FIXME: generate an event here
+            print self._opt.getSolutionReport()
+    
             # Diagnostics: compute RMS error
             field = self._outside_surface_fit_objective
             cache = fm.createFieldcache()
             dp_iter = data_nodeset_group.createNodeiterator()
             dp = dp_iter.next()
             while dp.isValid():
+                # cache.setMeshLocation(element, xi)
                 cache.setNode(dp)
+                # field.assignReal(cache, dp)
                 result, outValues = field.evaluateReal(cache, 3)
+                # Check result, use outValues
                 print result, np.sum(outValues)
                 dp = dp_iter.next()
-            
-            # Diagnostics write out node file.
-            # use createStreamInformation to only write out nodes
-            # use region.writeFile()
+                
+            region.writeFile("after.exregi")
 
-
-#         gauss_coordinates = fm.createEmbedded(self._coordinates, self._gauss_location)
-#         xi = fm.findFieldByName('xi')
-#         dX_dxi = fm.createFieldGradient(self._reference_coordinates, xi)
-#         dV = fm.createFieldDeterminant(dX_dxi)
-#          
-#         displacement = fm.createFieldSubtract(self._coordinates, self._reference_coordinates)
-#         two_fields = [fm.createFieldComponent(displacement, 1), fm.createFieldComponent(displacement, 2)]
-#         displacement_xy = fm.createFieldConcatenate(two_fields)
-#         displacement_gradient = fm.createFieldGradient(displacement_xy, self._reference_coordinates)
-#         gauss_displacement_gradient = fm.createFieldEmbedded(displacement_gradient, self._gauss_location)
-#         gauss_dV = fm.createFieldEmbedded(dV, self._gauss_location)
-#         gauss_weight_dV = fm.createFieldMultiply(self._gauss_weight, gauss_dV)
-#         alpha = fm.createFieldConstant([20])
-#         weight = fm.createFieldMultiply(gauss_weight_dV, alpha)
-#         scaled_gauss_displacement_gradient = fm.createFieldMultiply(gauss_displacement_gradient, weight)
-#          
-#         self._volume_smoothing_objective = fm.createFieldNodesetSumSquares(scaled_gauss_displacement_gradient, self._gauss_points_nodeset)       
-
-#         self._defineOptimisation(root_region)
-#     def _defineOptimisation(self, region):
-#         '''
-#         Define the optimisation field.  Set a least squares quasi newton
-#         optimisation method for one iteration.  We also add the objective field
-#         and independent field to the optimisation
-#         '''
-            
-        self._opt = fm.createOptimisation()
-        self._opt.setMethod(Optimisation.METHOD_LEAST_SQUARES_QUASI_NEWTON)
-        self._opt.addObjectiveField(self._outside_surface_fit_objective)
-        # self._opt.addObjectiveField(self._volume_smoothing_objective)
-        self._opt.addIndependentField(self._coordinates)
-        self._opt.setAttributeInteger(Optimisation.ATTRIBUTE_MAXIMUM_ITERATIONS, 1)
-         
-        print funcname(), "starting optimisation"
-        self._opt.optimise()
-        print funcname(), "finished optimisation"
-
-        # FIXME: generate an event here
-        print self._opt.getSolutionReport()
-
-        # Diagnostics: compute RMS error
-        field = self._outside_surface_fit_objective
-        cache = fm.createFieldcache()
-        dp_iter = data_nodeset_group.createNodeiterator()
-        dp = dp_iter.next()
-        while dp.isValid():
-            # cache.setMeshLocation(element, xi)
-            cache.setNode(dp)
-            # field.assignReal(cache, dp)
-            result, outValues = field.evaluateReal(cache, 3)
-            # Check result, use outValues
-            print result, np.sum(outValues)
-            dp = dp_iter.next()
-            
-        region.writeFile("after.exregi")
-
-        # FIXME: Not sure why this is necessary, but the graphics don't
-        # update if only show_fitted is called.
-        # self.show_reference()
-        # self.show_fitted()
 
 #     def _setGraphicsCoordinates(self, coordinate_field):
 #         with get_scene(self.context().getDefaultRegion()) as scene:
@@ -543,6 +547,10 @@ class Fitter(object):
 #         self._setGraphicsCoordinates(self._coordinates)
 #         self._fittedVisible = True
         for g in self._initial_graphics:
+            g.setVisibilityFlag(state)
+
+    def show_data_cubic(self, state):
+        for g in self._cubic_graphics_data:
             g.setVisibilityFlag(state)
 
     def show_reference_cubic(self, state):
@@ -585,6 +593,7 @@ class Fitter(object):
 
         self._coords_name = 'coordinates'
         self._ref_coords_name = 'reference_coordinates'
+        self._data_coords_name = 'data_coordinates'
         
         # returns a python list
         datapoints = mesh.read_txtnode(record['data'])
