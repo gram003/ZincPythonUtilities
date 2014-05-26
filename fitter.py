@@ -9,7 +9,7 @@ from opencmiss.zinc.optimisation import Optimisation
 
 import tools.mesh as mesh
 import tools.graphics as graphics
-from tools.utilities import get_scene, get_field_module
+from tools.utilities import get_scene, get_field_module, get_tessellation_module
 
 # for diagnostics
 import numpy as np
@@ -50,6 +50,13 @@ class Fitter(object):
         self._cubic_graphics_data = []
         self._cubic_graphics_ref = []
         self._cubic_graphics = []
+        
+        with get_tessellation_module(context) as tm:
+            t = tm.getDefaultTessellation()
+            t.setMinimumDivisions([4])
+            t.setRefinementFactors([4])
+            tm.setDefaultTessellation(t)
+
 
     def context(self):
         return self._context
