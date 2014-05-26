@@ -40,3 +40,20 @@ def get_field_module(region):
     finally:
         fm.endChange()
     return
+
+@contextlib.contextmanager
+def get_tessellation_module(context):
+    """
+    A context manager for the Tessellationmodule class. When used with the Python
+    with statement ensures that beginChange() and endChange() are called.
+    Usage:
+        with get_tessellation_module(context) as tessellation_module:
+            tessellation_module.some_method()
+    """
+    tm = context.getTessellationmodule()
+    tm.beginChange()
+    try:
+        yield tm
+    finally:
+        tm.endChange()
+    return
