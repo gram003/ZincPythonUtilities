@@ -1,4 +1,5 @@
 import math
+import numpy as np
 
 from opencmiss.zinc.element import Element, Elementbasis
 from opencmiss.zinc.status import OK
@@ -89,6 +90,21 @@ _basis_type_map = {1: Elementbasis.FUNCTION_TYPE_LINEAR_LAGRANGE,
 # findNodeByIdentifier
 # node.merge(template)
 
+def _find_mesh_dimension(basis_order, element_set):
+    """
+    Work out the dimension of the mesh by the number of nodes in the first element
+    """
+    element_node_count = len(element_set[0])
+    float_dimension = math.log(element_node_count, basis_order+1)
+    dimension = int(round(math.log(element_node_count, basis_order+1)))
+    assert(float_dimension - dimension == 0.0)
+    if float_dimension - dimension != 0.0:
+        raise RuntimeError("Wrong number of nodes in element. Got %d expected %d." \
+                           % (element_node_count, math.pow(basis_order+1, dimension)))
+    #if __debug__: print "mesh basis_order", basis_order, "dimension", dimension
+    return dimension
+
+
 def _lagrange_mesh(ctxt, region, basis_order, node_coordinate_set, element_set, **kwargs):
     '''
     Create linear finite elements given node and element lists
@@ -127,14 +143,7 @@ def _lagrange_mesh(ctxt, region, basis_order, node_coordinate_set, element_set, 
         # Create and configure an element template for the appropriate mesh type.
         element_node_count = len(element_set[0])
 
-        # Work out the mesh dimension from the number of nodes in the first element    
-        float_dimension = math.log(element_node_count, basis_order+1)
-        dimension = int(round(math.log(element_node_count, basis_order+1)))
-        assert(float_dimension - dimension == 0.0)
-        if float_dimension - dimension != 0.0:
-            raise RuntimeError("Wrong number of nodes in element. Got %d expected %d." \
-                               % (element_node_count, math.pow(basis_order+1, dimension)))
-        #if __debug__: print "mesh basis_order", basis_order, "dimension", dimension    
+        dimension = _find_mesh_dimension(basis_order, element_set)
 
         mesh = field_module.findMeshByDimension(dimension)
         element_template = mesh.createElementtemplate()
@@ -208,13 +217,30 @@ def create_nodes(ctxt, region, coordinate_set, field_name='coordinates', merge=F
     
     return nodeset
 
+def generate_xi_locations(xi, ndim):
+    """
+    @param xi: list of the 1D xi coords
+    @param ndim: number of coordinates  
+    """
+    assert(1 <= ndim <= 3)
+    n = ndim
+    # generate indices
+    idx = np.indices([len(xi)] * n)
+    # get xi coord values from indices
+    # iterate from 2 to 0 so that xi1 changes fastest
+    v = [xi[idx[i]] for i in xrange(n-1, -1, -1)]
+    # reshape
+    coords = np.hstack([v[i].reshape(-1,1) for i in xrange(n)])
+    return coords
+
+
 def linear_to_cubic(ctxt, region_cubic, nodes, elements, tol=1e-4, **kwargs):
     """
     Convert a 3D linear mesh to cubic Lagrange 
     """
 
     # Implementation notes:
-    # Load the linear mesh into zinc as it will be need to interpolated
+    # Load the linear mesh into zinc as it will be need to interpolate
     # the positions of the internal nodes
     
     # Copy the linear mesh nodes into a new region
@@ -224,8 +250,6 @@ def linear_to_cubic(ctxt, region_cubic, nodes, elements, tol=1e-4, **kwargs):
     #    if not found:
     #        create a new node
     #    add the node to the element at the correct index
-
-    import numpy as np
     
     # Use rtree for finding already created nodes. This is about 300 times
     # faster than a linear search.
@@ -243,7 +267,8 @@ def linear_to_cubic(ctxt, region_cubic, nodes, elements, tol=1e-4, **kwargs):
     
     # Create a linear mesh in a temporary region for interpolating the nodal positions
     region_linear = region_cubic.createChild("temporary")
-    
+    dimension = _find_mesh_dimension(basis_order=1, element_set=elements)
+
     linear_mesh(ctxt, region_linear, nodes, elements, coordinate_field_name=coordinate_fields[0])
     
     with get_field_module(region_linear) as d_fm, \
@@ -258,9 +283,10 @@ def linear_to_cubic(ctxt, region_cubic, nodes, elements, tol=1e-4, **kwargs):
                 
         # precompute the xi coordinates
         xi = np.linspace(0, 1, 4)
-
+        xi_coords = generate_xi_locations(xi, ndim=dimension)
+            
         # iterate over the elements in the temporary linear mesh
-        initial_mesh = d_fm.findMeshByDimension(3)
+        initial_mesh = d_fm.findMeshByDimension(dimension)
         
         # coords field and cache for the new field
         #coordinates = fm.findFieldByName(coordinate_fields[0])
@@ -298,39 +324,38 @@ def linear_to_cubic(ctxt, region_cubic, nodes, elements, tol=1e-4, **kwargs):
 #                 elem_id = element.getIdentifier()
 #                 print  funcname(), "elem_id", elem_id
 
-            for xi3 in xi:
-                for xi2 in xi:
-                    for xi1 in xi:
-                        # print "xi", xi1, xi2, xi3
-                        d_fc.setMeshLocation(element, [xi1, xi2, xi3])
-                        result, outValues = lin_coordinates.evaluateReal(d_fc, 3)
-                        # add a tolerance to the search area
-                        bb = np.array(outValues)
-                        bb_min = bb - tol
-                        bb_max = bb + tol
-                        #print bb, bb_min, bb_max
-                        # Find the node in the kDtree
-                        found = list(idx3d.intersection(bb_min.tolist() + bb_max.tolist()))
-                        # print "found", found, "at", outValues
-                        if len(found) == 0:
-                            node_id = None
-                        else:
-                            node_id = found[0]
-                            #print "found node", node_id
-                            
-                        if node_id == None:
-                            #create a new node
-                            new_node = nodeset.createNode(-1, node_template)
-                            fc.setNode(new_node)
-                            # Pass in floats as an array
-                            for finite_element_field in finite_element_fields:
-                                finite_element_field.assignReal(fc, outValues)
-                            
-                            node_id = new_node.getIdentifier()
-                            idx3d.insert(node_id, outValues + outValues)
-                            # print "created node", node_id  
+            for xi in xi_coords:
+                # print "xi", xi1, xi2, xi3
+#                 print "xi", xi
+                d_fc.setMeshLocation(element, xi.tolist())#[xi1, xi2, xi3])
+                result, outValues = lin_coordinates.evaluateReal(d_fc, 3)
+                # add a tolerance to the search area
+                bb = np.array(outValues)
+                bb_min = bb - tol
+                bb_max = bb + tol
+                #print bb, bb_min, bb_max
+                # Find the node in the kDtree
+                found = list(idx3d.intersection(bb_min.tolist() + bb_max.tolist()))
+                # print "found", found, "at", outValues
+                if len(found) == 0:
+                    node_id = None
+                else:
+                    node_id = found[0]
+                    #print "found node", node_id
+                    
+                if node_id == None:
+                    #create a new node
+                    new_node = nodeset.createNode(-1, node_template)
+                    fc.setNode(new_node)
+                    # Pass in floats as an array
+                    for finite_element_field in finite_element_fields:
+                        finite_element_field.assignReal(fc, outValues)
+                    
+                    node_id = new_node.getIdentifier()
+                    idx3d.insert(node_id, outValues + outValues)
+                    # print "created node", node_id  
 
-                        new_element.append(node_id)
+                new_element.append(node_id)
 
             element = el_iter.next()
             cubic_elements.append(new_element)
@@ -440,6 +465,5 @@ def read_txtnode(filename):
     Read a list of coordinates from a file. One coordinate set per line.
     Returns a Python list of lists 
     '''
-    import numpy as np
     nodes = np.loadtxt(filename)
     return nodes.tolist()
