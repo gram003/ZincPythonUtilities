@@ -11,6 +11,7 @@ from opencmiss.zinc.context import Context
 class EZincWidget(RawWidget):
     hug_width = set_default('ignore')
     hug_height = set_default('ignore')
+    # d_ means it can be accessed from enaml
     context = d_(Typed(Context))
     #widget = d_(Typed(ZincWidget))
     

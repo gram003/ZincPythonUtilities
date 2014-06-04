@@ -6,12 +6,13 @@ class MainController(object):
     classdocs
     '''
         
-    def __init__(self, model=None):
+    def __init__(self):#, model=None):
         '''
         Constructor
         '''
-        self._model = model
+        #self._model = model
         self._undoStack = list()
+        
         
     # The model can't be passed to the constructor because of the
     # initialisation order so this method is provided instead.    
@@ -25,9 +26,38 @@ class MainController(object):
         if __debug__:
             import os
             os.chdir("test")
-            self.open_file("abi_femur.json")
+            #self.open_file("abi_femur.json")
+            self.open_file("test_2d_fit.json")
             os.chdir("..")
-           
+            # register the mesh to the mirrored the data 
+#             f = self._model
+#             f.register_automatic(translate=True, rotate=False, scale=False)
+#             f.data_mirror(1) # mirror in y axis
+#             f.register_automatic(translate=True, rotate=True)
+            
+            self._zw.viewAll()
+#             # convert to cubic
+#             self.convert_to_cubic()
+#             # hide initial mesh
+#             self.view_data(False)
+#             self.view_reference(False)
+#             self.view_fitted(False)
+#             self.view_data_cubic(True)
+#             self.view_reference_cubic(False)
+#             self.view_fitted_cubic(True)
+#             
+#             self.project()
+#             self.fit()
+            
+            self.convert_to_cubic()
+            # hide initial mesh
+            self.view_data(True)
+            self.view_reference(True)
+            self.view_fitted(True)
+#             self.view_data_cubic(True)
+#             self.view_reference_cubic(False)
+#             self.view_fitted_cubic(True)
+                   
     def on_closed(self):
         print funcname()
     #
@@ -129,6 +159,7 @@ class MainController(object):
 
     def convert_to_cubic(self):
         self._model.convert_to_cubic()
+        # how to set the active region?
 
     def project(self):
         self._model.project()

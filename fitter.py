@@ -93,7 +93,7 @@ class Fitter(object):
         self._selectMode = mode
         
     def meshLoaded(self):
-        fm = self._region_linear.getFieldmodule()
+#         fm = self._region_linear.getFieldmodule()
 
 #         self._coordinates = fm.findFieldByName('coordinates')
 #         self._reference_coordinates = fm.findFieldByName('reference_coordinates')
@@ -112,7 +112,7 @@ class Fitter(object):
         self.setCurrentRegion(self._root_region)
         
         self.show_data(True)
-        self.show_initial(True)
+        self.show_initial(False)
         self.show_fitted(True)
 
 
@@ -223,7 +223,7 @@ class Fitter(object):
         
         self._cubic_graphics = self._create_graphics_mesh(region_cubic, self._coords_name, colour='bone')
         
-        self._cubic_graphics_ref = self._create_graphics_mesh(region_cubic, self._ref_coords_name, colour='blue')
+        #self._cubic_graphics_ref = self._create_graphics_mesh(region_cubic, self._ref_coords_name, colour='blue')
 
         self._cubic_graphics_data = self._create_graphics_data(region_cubic, self._data_coords_name)
 
@@ -248,14 +248,14 @@ class Fitter(object):
                 self._gefFaces = None
             if self._gefFaces is None:
                 self._gefFaces = fm.createFieldElementGroup(mesh2d)
-            print "self._gefFaces", self._gefFaces
+            if __debug__: print "self._gefFaces", self._gefFaces
             # Get a mesh group to contain the selected faces
             gmFaces = self._gefFaces.getMeshGroup()
-            print "gmFaces", gmFaces 
+            if __debug__: print "gmFaces", gmFaces 
             gmFaces.removeAllElements()
     
             # outsideFaceIds = [3, 8, 13, 18, 23, 27]
-            print "self._mesh2d", self._mesh2d
+            if __debug__: print "self._mesh2d", self._mesh2d
             
             # get the selection field        
             self._selectionGroup = fm.findFieldByName("SelectionGroup").castGroup()
@@ -264,20 +264,22 @@ class Fitter(object):
             gefSelection = self._selectionGroup.getFieldElementGroup(mesh2d)
             meshgroup = gefSelection.getMeshGroup()
             el_iter = meshgroup.createElementiterator()
-            print "Adding elements to face group" 
+            if __debug__: print "Adding selected elements to face group" 
             count = 0
             element = el_iter.next()
             while element.isValid():
                 elem_id = element.getIdentifier()
-                print elem_id,
+                if __debug__: print elem_id,
                 gmFaces.addElement(mesh2d.findElementByIdentifier(elem_id))
                 element = el_iter.next()
                 count += 1
-            print
-            
+            if __debug__: print
+
             # for developing just use a few faces
             if count == 0:
-                elist = [int(x) for x in "34 77 158".split()]
+                #elist = [int(x) for x in "34 77 158".split()] # linear
+                #elist = [int(x) for x in "29 34 188 192".split()] # cubic
+                elist = [int(x) for x in "1".split()] # cubic
                 for eindex in elist:
                     gmFaces.addElement(mesh2d.findElementByIdentifier(eindex))
             
@@ -313,15 +315,18 @@ class Fitter(object):
     
             if count == 0:
                 # for developing use data points directly from the main datapoints set
-                dlist = [int(x) for x in "24 26 113 132 157 165 200 228 229 254 269 281 304 312 349 355 374 389 406 427 454 469 490 520 533 552".split()]
+                #dlist = [int(x) for x in "24 26 113 132 157 165 200 228 229 254 269 281 304 312 349 355 374 389 406 427 454 469 490 520 533 552".split()]
+                dlist = [x for x in xrange(1,37)]
                 for dindex in dlist:
                     gsData.addNode(sData.findNodeByIdentifier(dindex))
             
-            print "self._selectionGroup", self._selectionGroup
-            print "gsData", gsData
+            if __debug__: print "self._selectionGroup", self._selectionGroup
+            if __debug__: print "gsData", gsData
             # nodeGroup.
             # self._selectionGroup.getFieldNodeGroup(datapoints).addNode(228)
             # self._selectionGroup.addNode(228)
+            
+            self._selectionGroup.clear()
     
             self._defineStoredFoundLocation(region, gsData, gmFaces)
 
@@ -329,7 +334,7 @@ class Fitter(object):
     def _defineStoredFoundLocation(self, region, gsData, gmFaces):
         '''
         Create a field which dynamically finds the nearest location to the
-        scaled_data_coordinates on the 1-D mesh and define a field for
+        scaled_data_coordinates on the 2-D mesh and define a field for
         storing these locations so they are not recalculated during
         optimisation.
         '''
@@ -351,9 +356,9 @@ class Fitter(object):
     
             # region.writeFile("junk_region.exreg")
     
-            dataNodeset = fm.findNodesetByFieldDomainType(Field.DOMAIN_TYPE_DATAPOINTS)
-            gfDataCoords = fm.findFieldByName(self._data_coords_name).castGroup()
-            y = data_coordinates.castGroup()
+#             dataNodeset = fm.findNodesetByFieldDomainType(Field.DOMAIN_TYPE_DATAPOINTS)
+#             gfDataCoords = fm.findFieldByName(self._data_coords_name).castGroup()
+#             y = data_coordinates.castGroup()
             
     #         self._gnfData = gfDataCoords.getFieldNodeGroup(dataNodeset)
     #         #self._datapoints_nodeset = datapointsNodeGroup.getNodesetGroup()
@@ -377,7 +382,7 @@ class Fitter(object):
     #             
     #             node = node_iter.next()
             sData = fm.findNodesetByName('datapoints')
-            print "sData", sData
+#             print "sData", sData
     #         gnfSelectedData = self._selectionGroup.getFieldNodeGroup(sData)
     #         print "gnfSelectedData", gnfSelectedData
     #         gsSelectedData = gnfSelectedData.getNodesetGroup()
@@ -430,7 +435,7 @@ class Fitter(object):
             proj.setMaterial(blue)
             attr = proj.getGraphicspointattributes()
             attr.setGlyphShapeType(Glyph.SHAPE_TYPE_SPHERE)
-            attr.setBaseSize([1])
+            attr.setBaseSize([0.2]) # FIXME: this needs to be settable
             
             # error lines
             if not self._graphicsErrorLines is None:
@@ -681,7 +686,7 @@ class Fitter(object):
         
     def _create_graphics_data(self, region, coords_field, **kwargs):
         ctxt = self.context()
-        mygraphics = graphics.createDatapointGraphics(ctxt, region, datapoints_name='data')
+        mygraphics = graphics.createDatapointGraphics(ctxt, region, datapoints_name='data', datapoints_size=0.2)
         return mygraphics
 
     def _create_graphics_mesh(self, region, coords_field, **kwargs):
@@ -695,7 +700,8 @@ class Fitter(object):
                                         region,
                                         nodes_name='nodes',
                                         coordinate_field_name=coords_field,
-                                        colour=colour))
+                                        colour=colour,
+                                        nodes_size=0.2))
         
         mygraphics.extend(
             graphics.createSurfaceGraphics(ctxt,
