@@ -2,10 +2,13 @@
 import sys
 sys.path.append("..")
 import os
+import math
 
 import unittest
 from opencmiss.zinc.context import Context
 from tools import mesh
+
+import numpy as np
 
 node_coordinate_set = [[0.0, 0.0, 0.0], [3.0, 0.0, 0.0], [0.0, 4.0, 0.0], [3.0, 2.0, 0.0],
                         [0.0, 0.0, 2.0], [3.0, 0.0, 2.0], [0.0, 4.0, 2.0], [3.0, 2.0, 2.0],
@@ -14,12 +17,37 @@ node_coordinate_set = [[0.0, 0.0, 0.0], [3.0, 0.0, 0.0], [0.0, 4.0, 0.0], [3.0, 
 element_set_3d = [[1, 2, 3, 4, 5, 6, 7, 8],
                [2, 9, 4, 10, 6, 11, 8, 12]]
 
+node_coordinate_set_2d = [[0.0, 0.0, 0.0], [3.0, 0.0, 0.0], [0.0, 4.0, 0.0], [3.0, 2.0, 0.0]]
+
+element_set_2d = [[1, 2, 3, 4]]
+
+
 import filecmp
+
+
+def generate_fitting_data(fname):
+    xmax = 10
+    npoints = 10
+    x = np.linspace(1, xmax-1, npoints, endpoint=True)
+    print x
+    coords = mesh.generate_xi_locations(x, 2)
+    scale = 2*math.pi/xmax
+    data = []
+    for i, c in enumerate(coords.tolist()):
+        #print i, c,
+        #z = 1- 0.5*(math.cos(c[0]*scale) + math.cos(c[1]*scale))
+        z = 1 - math.cos(c[0]*scale)
+        z2 = 1 - math.sin(c[1]*scale)
+        #print z, z2, z + z2 - 1
+        data.append([c[0], c[1], z + z - 1])#z + z2 - 1])
+
+    np.savetxt(fname, np.array(data))
+    
 
 class TestMesh(unittest.TestCase):
 
     def setUp(self):
-        
+        generate_fitting_data("test_2d_fit.data.txt")
         pass
 
     def tearDown(self):
@@ -99,6 +127,24 @@ class TestMesh(unittest.TestCase):
         
         region_cubic.writeFile(fname)
         # not sure how to test if it was successful, for now just manually inspect the exregi file
+
+    @unittest.skip("")
+    def test_linear_to_cubic_small_2d(self):
+        fname = "test_linear_to_cubic_small_2d.exregi"
+        try:
+            os.unlink(fname)
+        except:
+            pass
+        
+        c = Context("test_linear_to_cubic_small_2d")
+        region_linear = c.createRegion()
+        region_linear.setName("linear")
+        region_cubic = c.createRegion()
+        region_cubic.setName("cubic_lagrange")
+        mesh.linear_to_cubic(c, region_cubic, node_coordinate_set_2d, element_set_2d,
+                             coordinate_field_name=['coordinates', 'reference_coordinates'])
+        
+        region_cubic.writeFile(fname)
 
 #     @unittest.skip("")
 #     def test_linear_to_cubic_small_merge(self):

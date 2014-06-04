@@ -20,16 +20,24 @@ class Test(unittest.TestCase):
         self.context = Context("TestContext")
         self.fitter = Fitter(self.context)
         self.savedDir = os.getcwd()
-        self.fitter.load_problem("abi_femur.json")
 
     def tearDown(self):
         pass
+    
+    def register(self):
+        f = self.fitter
+        f.register_automatic(translate=True, rotate=False, scale=False)
+        f.mirror_data(1) # mirror in y axis
+        f.register_automatic(translate=True, rotate=True)
+        
+        
 
     @unittest.skip("")
     def testRegisterAutomatic(self):
         # for a directory context manager see
         # http://stackoverflow.com/questions/431684/how-do-i-cd-in-python
         f = self.fitter
+        f.load_problem("abi_femur.json")
         initial = mesh.nodes_to_list(self.context)
         f.register_automatic()
         registered = mesh.nodes_to_list(self.context)
@@ -39,9 +47,10 @@ class Test(unittest.TestCase):
         self.assertFalse(np.allclose(a,b), "Initial and registered arrays are equal")
         
 
-    #@unittest.skip("")
+    @unittest.skip("")
     def testMirror(self):
         f = self.fitter
+        f.load_problem("abi_femur.json")
         # Get the list of nodes
         initial = mesh.data_to_list(self.context)
         f.data_mirror(0) # mirror in x axis
@@ -54,6 +63,19 @@ class Test(unittest.TestCase):
         print a
         print b
         self.assertFalse(np.allclose(a,b), "Initial and mirrored arrays are equal")
+
+    #@unittest.skip("")
+    def testConvertToCubic(self):
+        f = self.fitter
+        path = "test_2d_fit.json"
+        f.load_problem(path)
+        
+        # convert to cubic
+        f.convert_to_cubic()
+        
+        # FIXME: how to know that it worked? It didn't throw an exception?
+        
+
 
 
 if __name__ == "__main__":
