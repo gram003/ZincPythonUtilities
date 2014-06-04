@@ -440,7 +440,6 @@ class ZincWidget(QtOpenGL.QGLWidget):
 
             root_region.endHierarchicalChange()
             self._selectionMode = _SelectionMode.NONE
-            self.updateGL() # shouldn't be needed, but the view doesn't update without it
         else:
             scene_input = self._scene_viewer.createSceneviewerinput()
             scene_input.setPosition(mouseevent.x(), mouseevent.y())
