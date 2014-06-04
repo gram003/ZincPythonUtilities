@@ -112,6 +112,15 @@ class ZincWidget(QtOpenGL.QGLWidget):
     def setSelectionModeAdditive(self, state):
         self._selectionAlwaysAdditive = state
 
+    def _createSceneFilterForDomainType(self, domainType):
+        filter_module = self._context.getScenefiltermodule()
+        visible = filter_module.createScenefilterVisibilityFlags()
+        domain = filter_module.createScenefilterFieldDomainType(domainType)
+        and_filter = filter_module.createScenefilterOperatorAnd()
+        and_filter.appendOperand(visible)
+        and_filter.appendOperand(domain)
+        return and_filter
+
     def setSelectModeNode(self):
         '''
         Set the selection mode to select *only* nodes.
@@ -119,6 +128,8 @@ class ZincWidget(QtOpenGL.QGLWidget):
         self._nodeSelectMode = True
         self._dataSelectMode = False
         self._elemSelectMode = False
+        scene_filter = self._createSceneFilterForDomainType(Field.DOMAIN_TYPE_NODES)
+        self._scene_picker.setScenefilter(scene_filter)
 
     def setSelectModeData(self):
         '''
@@ -127,11 +138,8 @@ class ZincWidget(QtOpenGL.QGLWidget):
         self._nodeSelectMode = False
         self._dataSelectMode = True
         self._elemSelectMode = False
-        filter_module = self._context.getScenefiltermodule()
-        visible = filter_module.createScenefilterVisibilityFlags()
-        datapoints = filter_module.createScenefilterFieldDomainType(Field.DOMAIN_TYPE_DATAPOINTS)
-        and_filter = filter_module.createScenefilterOperatorAnd(visible, datapoints)
-        
+        scene_filter = self._createSceneFilterForDomainType(Field.DOMAIN_TYPE_DATAPOINTS)
+        self._scene_picker.setScenefilter(scene_filter)
 
     def setSelectModeElement(self):
         '''
@@ -140,22 +148,46 @@ class ZincWidget(QtOpenGL.QGLWidget):
         self._nodeSelectMode = False
         self._dataSelectMode = False
         self._elemSelectMode = True
+        scene_filter = self._createSceneFilterForDomainType(Field.DOMAIN_TYPE_MESH3D)
+        self._scene_picker.setScenefilter(scene_filter)
+
+    def setSelectModeFace(self):
+        '''
+        Set the selection mode to select *only* faces (2D mesh objects).
+        '''
+        self._nodeSelectMode = False
+        self._dataSelectMode = False
+        self._elemSelectMode = True
+        scene_filter = self._createSceneFilterForDomainType(Field.DOMAIN_TYPE_MESH2D)
+        self._scene_picker.setScenefilter(scene_filter)
+
+    def setSelectModeLine(self):
+        '''
+        Set the selection mode to select *only* lines (1D mesh objects).
+        '''
+        self._nodeSelectMode = False
+        self._dataSelectMode = False
+        self._elemSelectMode = True
+        scene_filter = self._createSceneFilterForDomainType(Field.DOMAIN_TYPE_MESH1D)
+        self._scene_picker.setScenefilter(scene_filter)
 
     def setSelectModeAll(self):
         '''
-        Set the selection mode to select both nodes and elements.
+        Set the selection mode to select anything in the scene.
         '''
         self._nodeSelectMode = True
         self._dataSelectMode = True
         self._elemSelectMode = True
+        self._scene_picker.setScenefilter(None)
         
     def setSelectModeNone(self):
         '''
-        Turn selection off.
+        Turn selection off and clear the filter on the scene picker.
         '''
         self._nodeSelectMode = False
         self._dataSelectMode = False
         self._elemSelectMode = False
+        self._scene_picker.setScenefilter(None)
         
     def getSelectionGroup(self):
         return self._selectionGroup
