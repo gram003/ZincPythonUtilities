@@ -178,6 +178,8 @@ class ZincWidget(QtOpenGL.QGLWidget):
         self._selectionGroup = fieldmodule.createFieldGroup()
         scene.setSelectionField(self._selectionGroup)
         self._scene_picker = scene.createScenepicker()
+        # set the filter to allow only picking of visible graphics
+        self._scene_picker.setScenefilter(graphics_filter) 
         self._scene_viewer.setScene(scene)
 
         # Using a really cheap workaround for creating a rubber band for selection.
