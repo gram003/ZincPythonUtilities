@@ -84,12 +84,19 @@ class ZincWidget(QtOpenGL.QGLWidget):
         method is called otherwise the scene viewer cannot be created.
         '''
         self._context = context
+        self.setCurrentRegion(context.getDefaultRegion())
 
     def getContext(self):
         if not self._context is None:
             return self._context
         else:
             raise RuntimeError("Zinc context has not been set.")
+        
+    def setCurrentRegion(self, region):
+        self._current_region = region
+
+    def getCurrentRegion(self):
+        return self._current_region
 
     def getSceneviewer(self):
         '''
@@ -172,7 +179,7 @@ class ZincWidget(QtOpenGL.QGLWidget):
 
         # Set the graphics filter for the scene viewer otherwise nothing will be visible.
         self._scene_viewer.setScenefilter(graphics_filter)
-        region = self._context.getDefaultRegion()
+        region = self.getCurrentRegion()
         scene = region.getScene()
         fieldmodule = region.getFieldmodule()
         self._selectionGroup = fieldmodule.createFieldGroup()
@@ -403,7 +410,7 @@ class ZincWidget(QtOpenGL.QGLWidget):
             x = mouseevent.x()
             y = mouseevent.y()
             # Construct a small frustum to look for nodes in.
-            root_region = self._context.getDefaultRegion()
+            root_region = self.getCurrentRegion()
             root_region.beginHierarchicalChange()
             self._selectionBox.setVisibilityFlag(False)
 
