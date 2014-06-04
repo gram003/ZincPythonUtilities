@@ -120,6 +120,11 @@ class ZincWidget(QtOpenGL.QGLWidget):
         self._nodeSelectMode = False
         self._dataSelectMode = True
         self._elemSelectMode = False
+        filter_module = self._context.getScenefiltermodule()
+        visible = filter_module.createScenefilterVisibilityFlags()
+        datapoints = filter_module.createScenefilterFieldDomainType(Field.DOMAIN_TYPE_DATAPOINTS)
+        and_filter = filter_module.createScenefilterOperatorAnd(visible, datapoints)
+        
 
     def setSelectModeElement(self):
         '''
