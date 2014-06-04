@@ -6,6 +6,7 @@ from opencmiss.zinc.glyph import Glyph
 from opencmiss.zinc.element import Element, Elementbasis
 from opencmiss.zinc.field import Field, FieldFindMeshLocation, FieldGroup
 from opencmiss.zinc.optimisation import Optimisation
+from opencmiss.zinc.region import Region
 
 import tools.mesh as mesh
 import tools.graphics as graphics
@@ -29,17 +30,29 @@ def funcname():
 # f field
 # 1,2,3 dimension, e.g. m2 = 2d mesh
 
+from atom.api import Atom, Typed, observe
+
 class Fitter(object):
     # selection modes
-    Faces = 1
-    Nodes = 2
-    Data = 4
+    #Faces = 1
+    #Nodes = 2
+    #Data = 4
+    class Observable(Atom):
+        region = Typed(Region)
+    
+#         def _observe_region(self, change):
+#             print change['name']
+#             print change['value']
+
+    observable = Observable()
+    
     
     def __init__(self, context):
         object.__init__(self)
         
         self._context = context
         self._root_region = context.getDefaultRegion()
+        self.observable.region = self._root_region
         self._projected_coordinates = None
         self._error_vector = None
         self._graphicsProjectedPoints = None
@@ -63,6 +76,9 @@ class Fitter(object):
     
     def region(self):
         return self._root_region
+    
+    def setCurrentRegion(self, region):
+        self.observable.region = region
     
     def setReferenceCoordinates(self, x):
         self._refcoords = x
@@ -92,6 +108,8 @@ class Fitter(object):
 #         
 #         scene_viewer.viewAll()
         #self.region().writeFile("junk.exregi")
+        
+        self.setCurrentRegion(self._root_region)
         
         self.show_data(True)
         self.show_initial(True)
@@ -191,6 +209,7 @@ class Fitter(object):
     def convert_to_cubic(self):
         region_cubic = self.region().createChild("cubic_lagrange")
         self._region_cubic = region_cubic
+        #self.setCurrentRegion(region_cubic)
         #region_cubic.setName("cubic_lagrange")
         
         nodes = mesh.nodes_to_list(self.context(), self._region_linear)

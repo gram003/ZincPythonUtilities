@@ -17,6 +17,7 @@ class MainController(object):
     # initialisation order so this method is provided instead.    
     def setFitter(self, fitter):
         self._model = fitter
+        fitter.observable.observe('region', self._onCurrentRegionChanged)
          
     def setZincWidget(self, zw):
         self._zw = zw
@@ -138,4 +139,14 @@ class MainController(object):
         if len(beta) == 0:
             beta = 0
         self._model.fit(float(alpha), float(beta))
+        
+    #
+    # Signals
+    #
+    
+    def _onCurrentRegionChanged(self, change):
+        assert(change['name'] == 'region')
+        region = change['value']
+        if __debug__: print funcname(), region.getName()
+        self._zw.setCurrentRegion(region)
         
