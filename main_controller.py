@@ -131,8 +131,12 @@ class MainController(object):
         self._zw.setSelectModeData()
         self._zw.setSelectionModeAdditive(True)
 
+    def select_nodes(self):
+        self._zw.setSelectModeNode()
+        self._zw.setSelectionModeAdditive(True)
+
     def select_faces(self):
-        self._zw.setSelectModeElement()
+        self._zw.setSelectModeFace()
         self._zw.setSelectionModeAdditive(True)
 
     #

@@ -160,10 +160,10 @@ enamldef RegistrationManualDockPane(DockPane):
                 # How do I provide some affordance about this. E.g how many points to select
                 RadioButton: sel_data:
                     text = "Sel data"
-                    clicked :: None 
+                    clicked :: controller.select_data()
                 RadioButton: sel_nodes:
                     text = "Sel nodes"
-                    clicked :: None 
+                    clicked :: controller.select_nodes()
             PushButton: manual:
                 text = 'Register'
                 clicked :: None
