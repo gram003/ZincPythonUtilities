@@ -2,7 +2,7 @@
 from enaml.widgets.api import (
     MainWindow, ToolBar, Action, ActionGroup, Container, MenuBar, Menu,
     FileDialogEx, DockPane, PushButton, RadioButton, GroupBox, ObjectCombo,
-    StatusBar, StatusItem, CheckBox, Label
+    StatusBar, StatusItem, CheckBox, Label, Field
 )
 
 from enaml.layout.api import vbox, hbox, spacer
@@ -217,11 +217,32 @@ enamldef FitDockPane(DockPane):
                     text = 'Project'
                     clicked :: controller.project()
                     tool_tip = "Project the selected data onto the selected faces"
+            GroupBox:
+                constraints = [
+                               vbox(
+                                hbox(lblarclen, arclen),
+                                hbox(lblcurvature, curvature)),
+                               arclen.width == 50,
+                               curvature.width == arclen.width
+                               ]
+                title = 'Smoothing'
+                Label: lblarclen:
+                    text = 'Arc length'
+                Field: arclen:
+                    #mask = '0'
+                    placeholder = '0'
+                    pass
+                Label: lblcurvature:
+                    text = 'Curvature'
+                Field: curvature:
+                    placeholder = '0'
+                    #mask = '0'
+                    pass
             PushButton:
     #             Action:
     #                 checkable = True
                     text = 'Fit'
-                    clicked :: controller.fit()
+                    clicked :: controller.fit(arclen.field_text(), curvature.field_text())
                     tool_tip = "Fit the selected faces to the selected data"
             
 enamldef MyToolBar(ToolBar):

@@ -426,7 +426,7 @@ class Fitter(object):
             attr.setOrientationScaleField(self._error_vector)
             attr.setScaleFactors([-1, 0, 0])
         
-    def fit(self):
+    def fit(self, alpha=0, beta=0):
         region = self._region_cubic
         region.writeFile("before.exregi")
         
@@ -441,7 +441,8 @@ class Fitter(object):
             # self._error_vector = fm.createFieldSubtract(self._projected_coordinates, self._data_coordinates)
             data_nodeset_group = self._gnfData.getNodesetGroup()
             self._outside_surface_fit_objective = fm.createFieldNodesetSumSquares(self._error_vector, data_nodeset_group)
-            print "self._outside_surface_fit_objective", self._outside_surface_fit_objective
+            if __debug__:
+                print "self._outside_surface_fit_objective", self._outside_surface_fit_objective
             
             # Diagnostics: print out data point ids
             if __debug__: 
@@ -496,26 +497,42 @@ class Fitter(object):
     #         optimisation method for one iteration.  We also add the objective field
     #         and independent field to the optimisation
     #         '''
-                    
-            # create an arc length penalty objective function
-            coords = fm.findFieldByName(self._coords_name)
-            du_dx = [fm.createFieldDerivative(coords, 1),
-                     fm.createFieldDerivative(coords, 2)]
-            du_dx12 = fm.createFieldConcatenate(du_dx)
-            
-            sNodes = fm.findNodesetByName('nodes')
-            sumsq = fm.createFieldNodesetSumSquares(du_dx12, sNodes)
-            alpha = fm.createFieldConstant(1000)
-            weighted = fm.createFieldAdd(alpha, sumsq)
-            mesh2d = self._mesh2d
-            self._line_arc_length_objective = fm.createFieldMeshIntegral(weighted, coords, mesh2d)
-            
-                
+
             self._opt = fm.createOptimisation()
             self._opt.setMethod(Optimisation.METHOD_LEAST_SQUARES_QUASI_NEWTON)
             self._opt.addObjectiveField(self._outside_surface_fit_objective)
             # self._opt.addObjectiveField(self._volume_smoothing_objective)
-            self._opt.addObjectiveField(self._line_arc_length_objective)
+            
+            # create penalty objective functions
+            coords = fm.findFieldByName(self._coords_name)
+            du_dx = [fm.createFieldDerivative(coords, 1),
+                     fm.createFieldDerivative(coords, 2)]
+            sNodes = fm.findNodesetByName('nodes')
+            mesh2d = self._mesh2d
+
+            # create an arc length penalty objective function
+            if alpha > 0:
+                du_dx_cat = fm.createFieldConcatenate(du_dx)
+                
+                sumsq = fm.createFieldNodesetSumSquares(du_dx_cat, sNodes)
+                const = fm.createFieldConstant(alpha)
+                weighted = fm.createFieldAdd(const, sumsq)
+                self._line_arc_length_objective = fm.createFieldMeshIntegral(weighted, coords, mesh2d)
+                self._opt.addObjectiveField(self._line_arc_length_objective)
+
+            # create a curvature penalty function
+            # FIXME: need basis_derivative to be put in the API to enable
+            # second derivatives
+            # The technique below of applying the derivative field twice will not work
+#             if beta > 0:
+#                 du2_dx2 = [fm.createFieldDerivative(du_dx[0], 1), fm.createFieldDerivative(du_dx[1], 2),
+#                            fm.createFieldDerivative(du_dx[0], 2), fm.createFieldDerivative(du_dx[1], 1)]
+#                 du_dx_cat = fm.createFieldConcatenate(du2_dx2)
+#                 sumsq = fm.createFieldNodesetSumSquares(du_dx_cat, sNodes)
+#                 const= fm.createFieldConstant(beta)
+#                 weighted = fm.createFieldAdd(const, sumsq)
+#                 self._curvature_objective = fm.createFieldMeshIntegral(weighted, coords, mesh2d)
+#                 self._opt.addObjectiveField(self._curvature_objective)
             
             coords = fm.findFieldByName('coordinates')
             self._opt.addIndependentField(coords)

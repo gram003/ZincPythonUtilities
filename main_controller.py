@@ -132,5 +132,10 @@ class MainController(object):
     def project(self):
         self._model.project()
 
-    def fit(self):
-        self._model.fit()
+    def fit(self, alpha, beta):
+        if len(alpha) == 0:
+            alpha = 0
+        if len(beta) == 0:
+            beta = 0
+        self._model.fit(float(alpha), float(beta))
+        
