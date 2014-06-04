@@ -121,6 +121,15 @@ class ZincWidget(QtOpenGL.QGLWidget):
         and_filter.appendOperand(domain)
         return and_filter
 
+    def _createSceneFilterForDomainType(self, domainType):
+        filter_module = self._context.getScenefiltermodule()
+        visible = filter_module.createScenefilterVisibilityFlags()
+        domain = filter_module.createScenefilterFieldDomainType(domainType)
+        and_filter = filter_module.createScenefilterOperatorAnd()
+        and_filter.appendOperand(visible)
+        and_filter.appendOperand(domain)
+        return and_filter
+
     def setSelectModeNode(self):
         '''
         Set the selection mode to select *only* nodes.
@@ -191,6 +200,16 @@ class ZincWidget(QtOpenGL.QGLWidget):
         
     def getSelectionGroup(self):
         return self._selectionGroup
+
+    def getSelectionGroupName(self):
+        """
+        Get the selection group name that can be used to query the field module
+        to get the selection group.
+        E.g.:
+        selectionGroup = field_module m.findFieldByName(name).castGroup()
+        """
+        return self._selectionGroupName
+        
 
     def getSelectionGroupName(self):
         """
