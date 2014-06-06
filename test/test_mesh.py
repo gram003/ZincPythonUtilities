@@ -6,7 +6,9 @@ import math
 
 import unittest
 from opencmiss.zinc.context import Context
+from opencmiss.zinc.field import Field
 from tools import mesh
+from tools.utilities import get_field_module
 
 import numpy as np
 
@@ -53,27 +55,33 @@ class TestMesh(unittest.TestCase):
     def tearDown(self):
         pass
     
-    @unittest.skip("")
+    #@unittest.skip("")
     def test_coordinate_field(self):
         mergefile = "test_coordinate_field_merged.exregi"
         listfile = "test_coordinate_field_list.exregi"
         
         c = Context("test_coordinate_field")
         region = c.createRegion()
+        # read nodes into a Python list
         nodes = mesh.read_txtnode("abi_femur_head.node.txt")
 
         # Create a nodeset
-        mesh._coordinate_field(c, region, nodes, 'nodes', 'coordinates')
-        
-        # Merge another field into the nodeset
-        mesh._coordinate_field(c, region, nodes, 'nodes', 'reference_coordinates', True)
-        # save for later comparision
+        with get_field_module(region) as fm:
+            nodeset = fm.findNodesetByFieldDomainType(Field.DOMAIN_TYPE_NODES)
+            mesh._coordinate_field(nodeset, nodes, 'coordinates')
+            # Merge another field into the nodeset
+            mesh._coordinate_field(nodeset, nodes, 'reference_coordinates', True)
+
+        # save for later comparison
         region.writeFile(mergefile)
         del region
 
-        # Do the same, but this time create the nodeset with both fields
+        # Do the same, but this time create the nodeset with both fields at once
         region = c.createRegion()
-        mesh._coordinate_field(c, region, nodes, 'nodes', ['coordinates', 'reference_coordinates'])
+        with get_field_module(region) as fm:
+            nodeset = fm.findNodesetByFieldDomainType(Field.DOMAIN_TYPE_NODES)
+            mesh._coordinate_field(nodeset, nodes, ['coordinates', 'reference_coordinates'])
+        
         region.writeFile(listfile)
         del region
         
@@ -84,24 +92,28 @@ class TestMesh(unittest.TestCase):
         os.unlink(mergefile)
         os.unlink(listfile)
         
-    @unittest.skip("")
+    #@unittest.skip("")
     def test_linear(self):
         mergefile = "test_coordinate_field_merged.exregi"
         listfile = "test_coordinate_field_list.exregi"
 
         c = Context("test_linear_to_cubic")
         region = c.createRegion()
-        mesh.linear_mesh(c, region, node_coordinate_set, element_set_3d)
-        mesh.linear_mesh(c, region, node_coordinate_set, element_set_3d,
-                         coordinate_field_name='reference_coordinates', merge=True)
-        region.writeFile(mergefile)
-        del region
+        with get_field_module(region) as fm:
+            mesh3d = fm.findMeshByDimension(3)
+            mesh.linear_mesh(mesh3d, node_coordinate_set, element_set_3d)
+            mesh.linear_mesh(mesh3d, node_coordinate_set, element_set_3d,
+                             coordinate_field_name='reference_coordinates', merge=True)
+            region.writeFile(mergefile)
+            del region
 
         region = c.createRegion()
-        mesh.linear_mesh(c, region, node_coordinate_set, element_set_3d,
-                         coordinate_field_name=['coordinates', 'reference_coordinates'])
-        region.writeFile(listfile)
-        del region
+        with get_field_module(region) as fm:
+            mesh3d = fm.findMeshByDimension(3)
+            mesh.linear_mesh(mesh3d, node_coordinate_set, element_set_3d,
+                             coordinate_field_name=['coordinates', 'reference_coordinates'])
+            region.writeFile(listfile)
+            del region
 
         self.assertTrue(filecmp.cmp(mergefile, listfile))
         
@@ -109,7 +121,7 @@ class TestMesh(unittest.TestCase):
         os.unlink(mergefile)
         os.unlink(listfile)
     
-    @unittest.skip("")
+    #@unittest.skip("")
     def test_linear_to_cubic_small(self):
         fname = "test_linear_to_cubic_small.exregi"
         try:
@@ -128,7 +140,7 @@ class TestMesh(unittest.TestCase):
         region_cubic.writeFile(fname)
         # not sure how to test if it was successful, for now just manually inspect the exregi file
 
-    @unittest.skip("")
+    #@unittest.skip("")
     def test_linear_to_cubic_small_2d(self):
         fname = "test_linear_to_cubic_small_2d.exregi"
         try:
@@ -187,7 +199,7 @@ class TestMesh(unittest.TestCase):
         
         region_cubic.writeFile("test_linear_to_cubic_medium.exregi")
 
-    @unittest.skip("")
+    #@unittest.skip("")
     def test_rtree(self):
         from rtree import index
         nodes = mesh.read_txtnode("abi_femur_head.node.txt")
