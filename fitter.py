@@ -118,8 +118,8 @@ class Fitter(object):
 
     def register_automatic(self, translate=True, rotate=True, scale=True):
         
-        undoFitted = self.create_fitted_nodes_undo()
-        undoReference = self.create_reference_nodes_undo()
+        undoFitted = self.create_fitted_nodes_undo(self._region_linear)
+        undoReference = self.create_reference_nodes_undo(self._region_linear)
         def restore():
             undoFitted()
             undoReference()
@@ -127,13 +127,17 @@ class Fitter(object):
         # Use Ju's ICP
         import ICP
         # extract nodes into a numpy array
-        node_list = mesh.nodes_to_list(self.context(), self._region_linear, 3, 'coordinates')
-        # print node_list
-        n = np.array(node_list)
+        with get_field_module(self._region_linear) as fm:
+            nodeset = fm.findNodesetByFieldDomainType(Field.DOMAIN_TYPE_NODES)
+
+            node_list = mesh.nodes_to_list(nodeset, 3, self._coords_name)
+            # print node_list
+            n = np.array(node_list)
         
-        data_list = mesh.data_to_list(self.context(), self._region_linear, 3, self._data_coords_name)
-        # print data_list
-        d = np.array(data_list)
+            datapointset = fm.findNodesetByFieldDomainType(Field.DOMAIN_TYPE_DATAPOINTS)
+            data_list = mesh.data_to_list(datapointset, 3, self._data_coords_name)
+            # print data_list
+            d = np.array(data_list)
         
         # FIXME: This uses all the nodes including internal nodes. It
         # would be better to use only the external nodes.
@@ -143,34 +147,36 @@ class Fitter(object):
         # T, trans_nodes = ICP.fitDataRigidEPDP(n, d)
         # T, trans_nodes = ICP.fitDataRigidScaleEPDP(n, d)
         
-        mesh.update_nodes(self.context(), self._region_linear, trans_nodes.tolist(), 'coordinates')
-        mesh.update_nodes(self.context(), self._region_linear, trans_nodes.tolist(), 'reference_coordinates')
+        mesh.update_nodes(nodeset, trans_nodes.tolist(), 'coordinates')
+        mesh.update_nodes(nodeset, trans_nodes.tolist(), 'reference_coordinates')
 
         return restore
     
-    def create_data_undo(self):
         # save the original data state
-        data_list = mesh.data_to_list(self.context(), self._region_linear, 3, self._data_coords_name)
+        nodeset = region.getFieldmodule().findNodesetByFieldDomainType(Field.DOMAIN_TYPE_DATAPOINTS)
+        data_list = mesh.data_to_list(nodeset, 3, self._data_coords_name)
         
         def restore(data):
-            mesh.update_data(self.context(), self._region_linear, data, self._data_coords_name)
+            mesh.update_data(nodeset, data, self._data_coords_name)
         undo = partial(restore, data_list)
         return undo
-        
-    def _create_nodes_undo(self, coordinateFieldName):
+
+    # FIXME: should this take a region as a parameter?
+    def _create_nodes_undo(self, region, coordinateFieldName):
         # save the nodes state
-        nodes = mesh.nodes_to_list(self.context(), self._region_linear, 3, coordinateFieldName)
+        nodeset = region.getFieldmodule().findNodesetByFieldDomainType(Field.DOMAIN_TYPE_NODES)
+        nodes = mesh.nodes_to_list(nodeset, 3, coordinateFieldName)
         
         def restore(data):
-            mesh.update_nodes(self.context(), self._region_linear, nodes, coordinateFieldName)
+            mesh.update_nodes(nodeset, nodes, coordinateFieldName)
         undo = partial(restore, nodes)
         return undo
 
-    def create_fitted_nodes_undo(self):
-        return self._create_nodes_undo("coordinates")
+    def create_fitted_nodes_undo(self, region):
+        return self._create_nodes_undo(region, "coordinates")
 
-    def create_reference_nodes_undo(self):
-        return self._create_nodes_undo("reference_coordinates")
+    def create_reference_nodes_undo(self, region):
+        return self._create_nodes_undo(region, "reference_coordinates")
         
 
         
