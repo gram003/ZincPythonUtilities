@@ -114,6 +114,7 @@ class Fitter(object):
         self.show_data(True)
         self.show_initial(False)
         self.show_fitted(True)
+                
 
 
     def register_automatic(self, translate=True, rotate=True, scale=True):
@@ -286,9 +287,10 @@ class Fitter(object):
         0 - yz, 1 - xz, 2 - xy
         """
         
-        undo = self.create_data_undo()
-        
-        data_list = mesh.data_to_list(self.context(), self._region_linear, 3, self._data_coords_name)
+        undo = self.create_data_undo(self._region_linear)
+        fm = self._region_linear.getFieldmodule()
+        datapointset = fm.findNodesetByFieldDomainType(Field.DOMAIN_TYPE_DATAPOINTS)
+        data_list = mesh.data_to_list(datapointset, 3, self._data_coords_name)
                     
         t = np.identity(3)
         t[axis, axis] = -1
@@ -308,7 +310,7 @@ class Fitter(object):
         else:
             data_list = mirrored
 
-        mesh.update_data(self.context(), self._region_linear, data_list.tolist(), self._data_coords_name)
+        mesh.update_data(datapointset, data_list.tolist(), self._data_coords_name)
         
         return undo
 
@@ -317,15 +319,22 @@ class Fitter(object):
         self._region_cubic = region_cubic
         #self.setCurrentRegion(region_cubic)
         #region_cubic.setName("cubic_lagrange")
-        
-        nodes = mesh.nodes_to_list(self.context(), self._region_linear)
-        
-        mesh.linear_to_cubic(self.context(), region_cubic, nodes, self._elements_linear,
-                             coordinate_field_name=[self._coords_name, self._ref_coords_name])
-        
-        # copy the data to the cubic region for fitting
-        data = mesh.data_to_list(self.context(), self._region_linear, 3)
-        mesh.create_data_points(self.context(), region_cubic, data)
+        with get_field_module(self._region_linear) as fm, \
+                        get_field_module(region_cubic) as fmc:
+            nodeset = fm.findNodesetByFieldDomainType(Field.DOMAIN_TYPE_NODES)
+            nodes = mesh.nodes_to_list(nodeset)
+            
+            mesh_cubic = fmc.findMeshByDimension(3)
+            
+            mesh.linear_to_cubic(mesh_cubic, nodes, self._elements_linear,
+                                 coordinate_field_name=[self._coords_name, self._ref_coords_name])
+            
+            # copy the data to the cubic region for fitting
+            datapointset = fm.findNodesetByFieldDomainType(Field.DOMAIN_TYPE_DATAPOINTS)
+            data = mesh.data_to_list(datapointset, 3)
+            with get_field_module(region_cubic) as fmc:
+                datapointset_cubic = fmc.findNodesetByFieldDomainType(Field.DOMAIN_TYPE_DATAPOINTS)
+                mesh.define_datapoints(datapointset_cubic, data)
         
         self._cubic_graphics = self._create_graphics_mesh(region_cubic, self._coords_name, colour='bone')
         
@@ -520,7 +529,8 @@ class Fitter(object):
             self._error_vector = fm.createFieldSubtract(self._projected_coordinates, data_coords)
             
             self._createProjectionGraphics(region)
-        
+
+    # FIXME: this should probably be in a "view" class
     def _createProjectionGraphics(self, region):
         materials_module = self.context().getMaterialmodule()
         materials_module.defineStandardMaterials()
@@ -757,7 +767,7 @@ class Fitter(object):
             # couldn't load json
             # FIXME: log diagnostics
             raise ex
-        ctxt = self.context()
+        #ctxt = self.context()
         region = self.region().createChild("linear")
         self._region_linear = region
 
@@ -767,7 +777,9 @@ class Fitter(object):
         
         # returns a python list
         datapoints = mesh.read_txtnode(record['data'])
-        mesh.create_data_points(ctxt, region, datapoints)
+        fm = region.getFieldmodule()
+        nodeset = fm.findNodesetByFieldDomainType(Field.DOMAIN_TYPE_DATAPOINTS)
+        mesh.define_datapoints(nodeset, datapoints)
         self._data_graphics = self._create_graphics_data(region, self._coords_name)
         
         nodes = mesh.read_txtnode(record['nodes'])
@@ -775,14 +787,15 @@ class Fitter(object):
         elems = mesh.read_txtelem(record['elems'])
         self._elements_linear = elems
                 
-        
-        mesh.linear_mesh(ctxt, region, nodes, elems,
+        mymesh = fm.findMeshByDimension(dimension)
+        mesh.linear_mesh(mymesh, nodes, elems,
                          coordinate_field_name=self._coords_name)
         
         # Load the mesh again, this time merging with the previous mesh
         # and renaming the coordinate field to reference_coordinates.
         # This adds another set of coordinates at each node.
-        mesh.linear_mesh(ctxt, region, nodes, elems,
+        mymesh = fm.findMeshByDimension(dimension)
+        mesh.linear_mesh(mymesh, nodes, elems,
                          coordinate_field_name=self._ref_coords_name, merge=True)
     
         self._initial_graphics = self._create_graphics_mesh(region, self._coords_name)
@@ -791,27 +804,24 @@ class Fitter(object):
         self.meshLoaded()
         
     def _create_graphics_data(self, region, coords_field, **kwargs):
-        ctxt = self.context()
-        mygraphics = graphics.createDatapointGraphics(ctxt, region, datapoints_name='data', datapoints_size=0.2)
+        mygraphics = graphics.createDatapointGraphics(region, datapoints_name='data', datapoints_size=self._pointSize)
         return mygraphics
-
-    def _create_graphics_mesh(self, region, coords_field, **kwargs):
+    
+    def _create_graphics_nodes(self, region, coords_field, **kwargs):
         ctxt = self.context()
         
         mygraphics = []
         
         colour = kwargs.get("colour", "white")
         
-        mygraphics.extend(graphics.createNodeGraphics(ctxt,
-                                        region,
+        mygraphics.extend(graphics.createNodeGraphics(region,
                                         nodes_name='nodes',
                                         coordinate_field_name=coords_field,
                                         colour=colour,
                                         nodes_size=0.2))
         
         mygraphics.extend(
-            graphics.createSurfaceGraphics(ctxt,
-                                           region,
+            graphics.createSurfaceGraphics(region,
                                            surfaces_name='surfaces',
                                            lines_name='lines',
                                            coordinate_field_name=coords_field,
