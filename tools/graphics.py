@@ -102,6 +102,10 @@ def createNodeGraphics(region, **kwargs):
          
         spheres = scene.createGraphicsPoints()
         spheres.setCoordinateField(finite_element_field)
+        subGroupField = kwargs.get("sub_group_field", None)
+        if subGroupField:
+            spheres.setSubgroupField(subGroupField)
+
         spheres.setFieldDomainType(Field.DOMAIN_TYPE_NODES)
         att = spheres.getGraphicspointattributes()
         att.setGlyphShapeType(Glyph.SHAPE_TYPE_SPHERE)
@@ -127,7 +131,7 @@ def createNodeGraphics(region, **kwargs):
     return (spheres, )  
 
 
-def createSurfaceGraphics(ctxt, region, **kwargs):
+def createLineGraphics(region, **kwargs):
     '''
     Create graphics for the default region.
     Keyword arguments that are currently supported:
@@ -162,6 +166,40 @@ def createSurfaceGraphics(ctxt, region, **kwargs):
         if 'lines_name' in kwargs:
             lines.setName(kwargs['lines_name'])
         lines.setMaterial(mat)
+        subGroupField = kwargs.get("sub_group_field", None)
+        if subGroupField:
+            lines.setSubgroupField(subGroupField)
+
+    return (lines,)
+
+
+def createSurfaceGraphics(region, **kwargs):
+    '''
+    Create graphics for the default region.
+    Keyword arguments that are currently supported:
+    node_size
+    node_label
+    datapoint_size
+    datapoint_label
+    '''
+
+    _createDefaultGraphics(region.getScene())
+
+    field_module = region.getFieldmodule()
+    # Get the scene for the default region to create the visualisation in.
+
+    with get_scene(region) as scene:
+
+        # createSurfaceGraphic graphic start
+        if 'coordinate_field_name' in kwargs:
+            coordinate_field_name = kwargs['coordinate_field_name']
+        else:
+            coordinate_field_name = 'coordinates'
+        finite_element_field = field_module.findFieldByName(coordinate_field_name)
+
+        colour = kwargs.get('colour', 'white')
+        materials_module = scene.getMaterialmodule()
+        mat = materials_module.findMaterialByName(colour)
          
         surfaces = scene.createGraphicsSurfaces()
         surfaces.setCoordinateField(finite_element_field)
@@ -170,5 +208,8 @@ def createSurfaceGraphics(ctxt, region, **kwargs):
      
         surfaces.setName(kwargs['surfaces_name'])
         surfaces.setMaterial(mat)
+        subGroupField = kwargs.get("sub_group_field", None)
+        if subGroupField:
+            surfaces.setSubgroupField(subGroupField)
             
-    return (lines, surfaces)
+    return (surfaces,)
