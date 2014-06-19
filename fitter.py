@@ -57,7 +57,7 @@ class Fitter(object):
         self._error_vector = None
         self._graphicsProjectedPoints = None
         self._graphicsErrorLines = None
-
+        self._pointSize = 1
         #self._fittedVisible = True
         
         self._cubic_graphics_data = []
