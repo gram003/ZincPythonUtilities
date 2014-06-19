@@ -5,6 +5,8 @@ from opencmiss.zinc.element import Element, Elementbasis
 from opencmiss.zinc.status import OK
 from opencmiss.zinc.field import Field
 
+from opencmiss.zinc.element import MeshGroup
+
 from tools.utilities import get_field_module
 
 from tools.diagnostics import funcname
@@ -107,7 +109,6 @@ def _find_mesh_dimension(basis_order, element_set):
     #if __debug__: print "mesh basis_order", basis_order, "dimension", dimension
     return dimension
 
-
 def _lagrange_mesh(mymesh, basis_order, node_coordinate_set, element_set, **kwargs):
     '''
     Create linear finite elements given node and element lists
@@ -148,8 +149,8 @@ def _lagrange_mesh(mymesh, basis_order, node_coordinate_set, element_set, **kwar
         dimension = _find_mesh_dimension(basis_order, element_set)
         assert(dimension == mymesh.getDimension())
 
-        mesh = fm.findMeshByDimension(dimension)
-        element_template = mesh.createElementtemplate()
+        #mesh = fm.findMeshByDimension(dimension)
+        element_template = mymesh.createElementtemplate()
         
         element_template.setElementShapeType(_shape_type_map[dimension])
         element_template.setNumberOfNodes(element_node_count)
@@ -173,6 +174,7 @@ def _lagrange_mesh(mymesh, basis_order, node_coordinate_set, element_set, **kwar
                                                     local_indices)
 
         # create the elements
+        new_elems = []
         element_id = 1 # FIXME: allow user to specify the starting element
         for node_indices in element_set:
             #print funcname(), "element_id", element_id
@@ -183,40 +185,52 @@ def _lagrange_mesh(mymesh, basis_order, node_coordinate_set, element_set, **kwar
                 
             if not merge:
                 _populateTemplate()
-                mesh.defineElement(-1, element_template)
+                element = mymesh.createElement(-1, element_template)
             else:
-                element = mesh.findElementByIdentifier(element_id)
+                element = mymesh.findElementByIdentifier(element_id)
                 _populateTemplate()
                  
                 element.merge(element_template)
+                
+            new_elems.append(element)
 
             element_id += 1
 
-        fm.defineAllFaces() 
+        fm.defineAllFaces()
+        
+        # workaround to ensure elements get added to group, if mymesh is a MeshGroup
+        grp = mymesh.castGroup()
+        if grp.isValid():
+            for elem in new_elems:
+                mymesh.addElement(elem)
+
 
 def linear_mesh(mesh, node_coordinate_set, element_set, **kwargs):
     _lagrange_mesh(mesh, 1, node_coordinate_set, element_set, **kwargs)
 
+
 def quadratic_lagrange_mesh(ctxt, region, node_coordinate_set, element_set, **kwargs):
     _lagrange_mesh(ctxt, region, 2, node_coordinate_set, element_set, **kwargs)
+
 
 def cubic_lagrange_mesh(themesh, node_coordinate_set, element_set, **kwargs):
     _lagrange_mesh(themesh, 3, node_coordinate_set, element_set, **kwargs)
     
-def create_data_points(ctxt, region, coordinate_set, field_name='data_coordinates'):
-    
+
+def define_datapoints(nodeset, coordinate_set, field_name='data_coordinates', merge=False):
+     
     if len(coordinate_set) == 0:
         raise RuntimeError("Empty datapoint coordinate list") 
-                
-    nodeset = _coordinate_field(ctxt, region, coordinate_set, 'datapoints', field_name)
+                 
+    _coordinate_field(nodeset, coordinate_set, field_name, merge)
     
-    return nodeset
 
-def create_nodes(nodeset, coordinate_set, field_name='coordinates', merge=False):
+def define_nodes(nodeset, coordinate_set, field_name='coordinates', merge=False):
     if len(coordinate_set) == 0:
         raise RuntimeError("Empty node coordinate list") 
 
     _coordinate_field(nodeset, coordinate_set, field_name, merge)
+
 
 def generate_xi_locations(xi, ndim):
     """
@@ -235,7 +249,7 @@ def generate_xi_locations(xi, ndim):
     return coords
 
 
-def linear_to_cubic(ctxt, region_cubic, nodes, elements, tol=1e-4, **kwargs):
+def linear_to_cubic(mesh_cubic, nodes, elements, tol=1e-4, **kwargs):
     """
     Convert a 3D linear mesh to cubic Lagrange 
     """
@@ -265,6 +279,7 @@ def linear_to_cubic(ctxt, region_cubic, nodes, elements, tol=1e-4, **kwargs):
         coordinate_fields = [coordinate_field_name] 
 
     #merge = kwargs.get('merge', False)
+    region_cubic = mesh_cubic.getFieldmodule().getRegion()
     
     # Create a linear mesh in a temporary region for interpolating the nodal positions
     region_linear = region_cubic.createChild("temporary")
@@ -286,7 +301,7 @@ def linear_to_cubic(ctxt, region_cubic, nodes, elements, tol=1e-4, **kwargs):
         nodes = nodes_to_list(nodeset)
         
         nodeset_cubic = fm.findNodesetByFieldDomainType(Field.DOMAIN_TYPE_NODES)
-        create_nodes(nodeset_cubic, nodes, coordinate_fields)
+        define_nodes(nodeset_cubic, nodes, coordinate_fields)
                 
         # precompute the xi coordinates
         xi = np.linspace(0, 1, 4)
@@ -398,26 +413,26 @@ def _nodes_to_list(nodeset, numValues=3, coordFieldName='coordinates'):
 
     return node_list
 
-def _update_nodes(ctxt, region, coordinate_set, nodesetName, coordFieldName='coordinates'):
+def _update_nodes(nodeset, coordinate_set, nodesetName, coordFieldName='coordinates'):
     """
     Update nodes with the coordinates in the given coordinate_set (as a Python List).
     """
-    fm = region.getFieldmodule()
-    sNodes = fm.findNodesetByName(nodesetName)
-    field = fm.findFieldByName(coordFieldName)
-    
-    num_nodes = sNodes.getSize()
-    if num_nodes != len(coordinate_set):
-        raise RuntimeError("Update list must have the same number of nodes as the nodeset. Got %d nodeset has %d."
-                           % (len(coordinate_set), num_nodes))
     
     # Update nodes with new coordinates 
-    with get_field_module(region) as fm:
+    with get_field_module(nodeset) as fm:
     
+#         sNodes = fm.findNodesetByName(nodesetName)
+        field = fm.findFieldByName(coordFieldName)
+        
+        num_nodes = nodeset.getSize()
+        if num_nodes != len(coordinate_set):
+            raise RuntimeError("Update list must have the same number of nodes as the nodeset. Got %d nodeset has %d."
+                               % (len(coordinate_set), num_nodes))
+
         cache = fm.createFieldcache()
         node_id = 1
         for coords in coordinate_set:
-            node = sNodes.findNodeByIdentifier(node_id)
+            node = nodeset.findNodeByIdentifier(node_id)
             cache.setNode(node)
             result = field.assignReal(cache, coords)
             node_id += 1
@@ -429,23 +444,23 @@ def nodes_to_list(nodeset, numValues=3, coordFieldName='coordinates'):
     """
     return _nodes_to_list(nodeset, numValues, coordFieldName)
 
-def update_nodes(ctxt, region, node_list, coordFieldName='coordinates'):
+def update_nodes(nodeset, node_list, coordFieldName='coordinates'):
     """
     Update nodes from a list of coordinates
     """
-    _update_nodes(ctxt, region, node_list, 'nodes', coordFieldName)
+    _update_nodes(nodeset, node_list, Field.DOMAIN_TYPE_NODES, coordFieldName)
 
-def data_to_list(ctxt, region, numValues=3, coordFieldName='data_coordinates'):
+def data_to_list(nodeset, numValues=3, coordFieldName='data_coordinates'):
     """
     Return all datapoints as a Python list
     """
-    return _nodes_to_list(ctxt, region, 'datapoints', numValues, coordFieldName)
+    return _nodes_to_list(nodeset, numValues, coordFieldName)
 
-def update_data(ctxt, region, node_list, coordFieldName='data_coordinates'):
+def update_data(nodeset, node_list, coordFieldName='data_coordinates'):
     """
     Generate datapoints from a list of coordinates
     """
-    _update_nodes(ctxt, region, node_list, 'datapoints', coordFieldName)
+    _update_nodes(nodeset, node_list, Field.DOMAIN_TYPE_NODES, coordFieldName)
 
     
 def read_txtelem(filename):
