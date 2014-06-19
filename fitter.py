@@ -8,6 +8,8 @@ from opencmiss.zinc.field import Field, FieldFindMeshLocation, FieldGroup
 from opencmiss.zinc.optimisation import Optimisation
 from opencmiss.zinc.region import Region
 
+from opencmiss.zinc.selection import Selectioncallback
+
 import tools.mesh as mesh
 import tools.graphics as graphics
 from tools.utilities import get_scene, get_field_module, get_tessellation_module
@@ -71,6 +73,9 @@ class Fitter(object):
             tm.setDefaultTessellation(t)
 
 
+    def _selectionCallback(self, evt):
+        print funcname(), evt
+
     def context(self):
         return self._context
     
@@ -118,7 +123,22 @@ class Fitter(object):
         self.show_data(True)
         self.show_initial(False)
         self.show_fitted(True)
+        
+        # Create a callable selection notifier class
+        # http://cmiss.sourceforge.net/classOpenCMISS_1_1Zinc_1_1Selectioncallback.html
+        class SelectionEvent(Selectioncallback):
+            def __init__(self):
+                pass
+            def __call__(self, evt):
+                print evt
                 
+        callbackObj = SelectionEvent()
+        
+        with get_scene(self._root_region) as scene:
+            notifier = scene.createSelectionnotifier()
+            notifier.setCallback(callbackObj)
+            notifier.setCallback(self._selectionCallback)
+        
 
 
     def register_automatic(self, translate=True, rotate=True, scale=True):
