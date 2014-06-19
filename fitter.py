@@ -800,8 +800,9 @@ class Fitter(object):
         mymesh = fm.findMeshByDimension(dimension)
         mesh.linear_mesh(mymesh, nodes, elems,
                          coordinate_field_name=self._ref_coords_name, merge=True)
-    
-        self._initial_graphics = self._create_graphics_mesh(region, self._coords_name)
+            
+        self._initial_graphics = self._create_graphics_mesh(region, self._coords_name, colour='white')
+
         self._initial_graphics_ref = self._create_graphics_mesh(region, self._ref_coords_name, colour="green")
         
         self.meshLoaded()
@@ -822,13 +823,62 @@ class Fitter(object):
                                         coordinate_field_name=coords_field,
                                         colour=colour,
                                         nodes_size=self._pointSize))
+        return mygraphics
+    
+    def _create_graphics_lines(self, region, coords_field, **kwargs):
         
+        mygraphics = []
+        
+        #colour = kwargs.get("colour", "white")
+        
+        mygraphics.extend(
+            graphics.createLineGraphics(region,
+                                           lines_name='lines',
+                                           coordinate_field_name=coords_field,
+                                           **kwargs))
+                
+        return mygraphics
+
+    def _create_graphics_surfaces(self, region, coords_field, **kwargs):
+        
+        mygraphics = []
+        
+        #colour = kwargs.get("colour", "white")
+        
+        mygraphics.extend(
+            graphics.createSurfaceGraphics(region,
+                                           surfaces_name='surfaces',
+                                           **kwargs))
+                
+        return mygraphics
+
+    def _create_graphics_mesh(self, region, coords_field, **kwargs):
+        
+        mygraphics = []
+        
+#         colour = kwargs.get("colour", "white")
+        
+        # FIXME: this should call _create_graphics_nodes and _create_graphics_surfaces
+        
+        mygraphics.extend(graphics.createNodeGraphics(region,
+                                                      nodes_name='nodes',
+                                                      coordinate_field_name=coords_field,
+                                                      nodes_size=self._pointSize,
+                                                      **kwargs))
+        
+        mygraphics.extend(
+            graphics.createLineGraphics(region,
+                                        surfaces_name='surfaces',
+                                        lines_name='lines',
+                                        coordinate_field_name=coords_field,
+                                        **kwargs))
+
         mygraphics.extend(
             graphics.createSurfaceGraphics(region,
                                            surfaces_name='surfaces',
                                            lines_name='lines',
                                            coordinate_field_name=coords_field,
-                                           colour=colour))
+                                           **kwargs))
         
 #         graphics.append(
 #             graphics.createNodeGraphics(ctxt,
