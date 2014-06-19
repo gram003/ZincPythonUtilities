@@ -788,6 +788,8 @@ class Fitter(object):
         nodes = mesh.read_txtnode(record['nodes'])
         
         elems = mesh.read_txtelem(record['elems'])
+        dimension = mesh._find_mesh_dimension(record["basis_order"], elems)
+        
         self._elements_linear = elems
                 
         mymesh = fm.findMeshByDimension(dimension)
