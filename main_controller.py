@@ -28,6 +28,7 @@ class MainController(object):
             os.chdir("test")
             #self.open_file("abi_femur.json")
             self.open_file("test_2d_fit.json")
+            self._model.setPointSize(1) # this should be in the json
             os.chdir("..")
             # register the mesh to the mirrored the data 
 #             f = self._model

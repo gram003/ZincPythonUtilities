@@ -92,6 +92,9 @@ class Fitter(object):
     def setSelectMode(self, mode):
         self._selectMode = mode
         
+    def setPointSize(self, size):
+        self._pointSize = size
+        
     def meshLoaded(self):
 #         fm = self._region_linear.getFieldmodule()
 
@@ -551,7 +554,7 @@ class Fitter(object):
             proj.setMaterial(blue)
             attr = proj.getGraphicspointattributes()
             attr.setGlyphShapeType(Glyph.SHAPE_TYPE_SPHERE)
-            attr.setBaseSize([0.2]) # FIXME: this needs to be settable
+            attr.setBaseSize([self._pointSize])
             
             # error lines
             if not self._graphicsErrorLines is None:
@@ -818,7 +821,7 @@ class Fitter(object):
                                         nodes_name='nodes',
                                         coordinate_field_name=coords_field,
                                         colour=colour,
-                                        nodes_size=0.2))
+                                        nodes_size=self._pointSize))
         
         mygraphics.extend(
             graphics.createSurfaceGraphics(region,
