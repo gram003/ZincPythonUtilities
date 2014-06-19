@@ -24,32 +24,31 @@ def defineStandardMaterials(context):
     material_module.defineStandardMaterials()
 
 
-def _createDefaultGraphics(context):
+def _createDefaultGraphics(scene):
     global _defaultGraphicsCreated
     if not _defaultGraphicsCreated:
-        glyph_module = context.getGlyphmodule()
+        glyph_module = scene.getGlyphmodule()
         glyph_module.defineStandardGlyphs()
         _defaultGraphicsCreated = True
-        material_module = context.getMaterialmodule()
+        material_module = scene.getMaterialmodule()
         material_module.defineStandardMaterials()
 
 
-def createDatapointGraphics(ctxt, region, **kwargs):
+def createDatapointGraphics(region, **kwargs):
     
-    #_createDefaultGraphics(ctxt)
-    glyph_module = ctxt.getGlyphmodule()
-    glyph_module.defineStandardGlyphs()
-
-    materials_module = ctxt.getMaterialmodule()
-    materials_module.defineStandardMaterials()
-
-    colour = kwargs.get('colour', 'green')
-    materials_module = ctxt.getMaterialmodule()
-    mat = materials_module.findMaterialByName(colour)
-
-    field_module = region.getFieldmodule()
-
     with get_scene(region) as scene:
+        #_createDefaultGraphics(ctxt)
+        glyph_module = scene.getGlyphmodule()
+        glyph_module.defineStandardGlyphs()
+    
+        materials_module = scene.getMaterialmodule()
+        materials_module.defineStandardMaterials()
+    
+        colour = kwargs.get('colour', 'green')
+        materials_module = scene.getMaterialmodule()
+        mat = materials_module.findMaterialByName(colour)
+    
+        field_module = region.getFieldmodule()
                     
         data_coordinates = field_module.findFieldByName('data_coordinates')
         diamonds = scene.createGraphicsPoints()
@@ -77,9 +76,9 @@ def createDatapointGraphics(ctxt, region, **kwargs):
     return (diamonds, )
 
 
-def createNodeGraphics(ctxt, region, **kwargs):
+def createNodeGraphics(region, **kwargs):
 
-    _createDefaultGraphics(ctxt)
+    _createDefaultGraphics(region.getScene())
 
     field_module = region.getFieldmodule()
 
@@ -93,7 +92,7 @@ def createNodeGraphics(ctxt, region, **kwargs):
         finite_element_field = field_module.findFieldByName(coordinate_field_name)
     
         colour = kwargs.get('colour', 'white')
-        materials_module = ctxt.getMaterialmodule()
+        materials_module = scene.getMaterialmodule()
         mat = materials_module.findMaterialByName(colour)
 
     #     # Diagnositics    
@@ -138,7 +137,7 @@ def createSurfaceGraphics(ctxt, region, **kwargs):
     datapoint_label
     '''
 
-    _createDefaultGraphics(ctxt)
+    _createDefaultGraphics(region.getScene())
 
     field_module = region.getFieldmodule()
     # Get the scene for the default region to create the visualisation in.
@@ -153,8 +152,9 @@ def createSurfaceGraphics(ctxt, region, **kwargs):
         finite_element_field = field_module.findFieldByName(coordinate_field_name)
 
         colour = kwargs.get('colour', 'white')
-        materials_module = ctxt.getMaterialmodule()
+        materials_module = scene.getMaterialmodule()
         mat = materials_module.findMaterialByName(colour)
+        
          
         # Create line graphics
         lines = scene.createGraphicsLines()
