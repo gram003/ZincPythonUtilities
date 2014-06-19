@@ -30,7 +30,7 @@ def funcname():
 # f field
 # 1,2,3 dimension, e.g. m2 = 2d mesh
 
-from atom.api import Atom, Typed, observe
+from atom.api import Atom, Typed
 
 class Fitter(object):
     # selection modes
@@ -79,6 +79,7 @@ class Fitter(object):
     
     def setCurrentRegion(self, region):
         self.observable.region = region
+        self._root_region = region
     
     def setReferenceCoordinates(self, x):
         self._refcoords = x
