@@ -152,6 +152,106 @@ class Fitter(object):
 
         return restore
     
+    def createBoundingBoxMesh(self, region, coordinateFieldName):
+        # get the list of nodes in the region
+        with get_field_module(region) as fm:
+            nodeset = fm.findNodesetByFieldDomainType(Field.DOMAIN_TYPE_NODES)
+            nodes = mesh.nodes_to_list(nodeset, 3, coordinateFieldName)
+            npnodes = np.array(nodes)
+            nmin = np.min(npnodes, axis=0)
+            nmax = np.max(npnodes, axis=0)
+            
+            max_node = len(nodes)
+            
+            # make the bounding box 5% larger than the mesh
+            for i, _ in enumerate(nmin):
+                dx = 1.05 * (nmax[i] - nmin[i])
+                new_min = nmax[i] - dx
+                new_max = nmin[i] + dx
+                nmax[i] = new_max
+                nmin[i] = new_min
+    
+            # create bounding box vertex nodes
+            n = [nmin, nmax]
+            
+    #         nodes = [[ n[0][0], n[0][1], n[0][2] ],
+    #                  [ n[1][0], n[0][1], n[0][2] ],
+    #                  [ n[0][0], n[1][1], n[0][2] ],
+    #                  [ n[1][0], n[1][1], n[0][2] ],
+    #                  ]
+            
+            host_nodes = []
+             
+            for z in [0, 1]: 
+                for y in [0, 1]:
+                    for x in [0, 1]:
+                        host_nodes.append([ n[x][0], n[y][1], n[z][2]])
+                        
+            print np.array(host_nodes)
+            
+            #mesh.create_nodes(self.context(), region, host_nodes, field_name="host_"+coordinateFieldName, merge=False)
+            element = [[i for i in xrange(max_node+1, max_node+9)]]
+            hostGroup = fm.createFieldGroup()
+            hostGroup.setSubelementHandlingMode(FieldGroup.SUBELEMENT_HANDLING_MODE_FULL)
+            hostGroup.setManaged(True) # prevent group from being destroyed when not in use
+            hostGroup.setName('host')
+            mesh3d = fm.findMeshByDimension(3)
+            hostElemGroup = hostGroup.createFieldElementGroup(mesh3d)
+            meshGroup = hostElemGroup.getMeshGroup()
+            mesh.linear_mesh(meshGroup, host_nodes, element, coordinate_field_name="host_"+coordinateFieldName)
+            
+            return hostGroup
+        
+        # TODO: create a mesh group for the host mesh and pass this to linear_mesh instead of the region
+        
+        # newly created element(s) will have the highest element id(s)
+
+    def register_hostmesh(self):
+        """
+        Given a list of nodes and a list of target datapoints host mesh fit
+        the nodes to the data.
+        """
+        undoFitted = self.create_fitted_nodes_undo(self._region_linear)
+        undoReference = self.create_reference_nodes_undo(self._region_linear)
+        def restore():
+            undoFitted()
+            undoReference()
+        
+        # FIXME: get nodes from selection
+        nodes = [1,2,3,4]
+        targets = [6,7,8,9] # datapoints
+        
+        # Create a bounding box
+        # This has to be done in the same region as the mesh so it will need to
+        # use the next highest node numbers.
+        # FIXME: Will this break cubic conversion? I could delete this element after the fit is done.
+        # FIXME: Could I clone the region to work around this?
+        
+        with get_field_module(self._region_linear)as fm:
+            mgHost = fm.createFieldGroup()
+            
+        hostGroup = self.createBoundingBoxMesh(self._region_linear, self._coords_name)
+        
+#         with get_field_module(self._region_linear) as fm:
+#             mesh3d = fm.findMeshByDimension(3)
+#             group = fm.createFieldGroup()
+#             if not group.isValid():
+#                 raise RuntimeError("%s couldn't create group for host element" % funcname())
+#         
+#             elementsGroup = group.createFieldElementGroup(mesh3d)
+#             elementsGroup.
+
+        self._region_linear.writeFile("host.exregi")
+        
+        self._host_graphics = self._create_graphics_nodes(self._region_linear, "host_"+self._coords_name, sub_group_field=hostGroup)
+        self._host_graphics.extend(self._create_graphics_lines(self._region_linear, "host_"+self._coords_name, sub_group_field=hostGroup))
+        for g in self._host_graphics:
+            g.setVisibilityFlag(True)
+
+        return restore
+        
+    
+    def create_data_undo(self, region):
         # save the original data state
         nodeset = region.getFieldmodule().findNodesetByFieldDomainType(Field.DOMAIN_TYPE_DATAPOINTS)
         data_list = mesh.data_to_list(nodeset, 3, self._data_coords_name)
