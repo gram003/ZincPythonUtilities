@@ -19,6 +19,8 @@ from opencmiss.zinc.scenecoordinatesystem import \
 from opencmiss.zinc.field import Field
 from opencmiss.zinc.glyph import Glyph
 from opencmiss.zinc.status import OK
+from opencmiss.zinc.selection import Selectionevent
+from opencmiss.zinc.region import Region
 
 import tools.graphics as graphics
 
@@ -54,9 +56,14 @@ class ZincWidget(QtOpenGL.QGLWidget):
     try:
         # PySide
         graphicsInitialized = QtCore.Signal()
+        graphicsSelected = QtCore.Signal(object, object)
     except AttributeError:
         # PyQt
         graphicsInitialized = QtCore.pyqtSignal()
+        # parameters are
+        #     item - element or node
+        #     Field.DomainType
+        graphicsSelected = QtCore.pyqtSignal(object, object)
     
 
     # init start
@@ -89,7 +96,9 @@ class ZincWidget(QtOpenGL.QGLWidget):
         method is called otherwise the scene viewer cannot be created.
         '''
         self._context = context
-        self.setCurrentRegion(context.getDefaultRegion())
+        region = context.getDefaultRegion()
+        region.setName("root")
+        self.setCurrentRegion(region)
 
     def getContext(self):
         if not self._context is None:
@@ -111,15 +120,6 @@ class ZincWidget(QtOpenGL.QGLWidget):
     
     def setSelectionModeAdditive(self, state):
         self._selectionAlwaysAdditive = state
-
-    def _createSceneFilterForDomainType(self, domainType):
-        filter_module = self._context.getScenefiltermodule()
-        visible = filter_module.createScenefilterVisibilityFlags()
-        domain = filter_module.createScenefilterFieldDomainType(domainType)
-        and_filter = filter_module.createScenefilterOperatorAnd()
-        and_filter.appendOperand(visible)
-        and_filter.appendOperand(domain)
-        return and_filter
 
     def _createSceneFilterForDomainType(self, domainType):
         filter_module = self._context.getScenefiltermodule()
@@ -210,16 +210,6 @@ class ZincWidget(QtOpenGL.QGLWidget):
         """
         return self._selectionGroupName
         
-
-    def getSelectionGroupName(self):
-        """
-        Get the selection group name that can be used to query the field module
-        to get the selection group.
-        E.g.:
-        selectionGroup = field_module m.findFieldByName(name).castGroup()
-        """
-        return self._selectionGroupName
-        
     def setProjectionMode(self, mode):
         '''
         Set the projection mode for this scene viewer.
@@ -250,6 +240,7 @@ class ZincWidget(QtOpenGL.QGLWidget):
         # Set the graphics filter for the scene viewer otherwise nothing will be visible.
         self._scene_viewer.setScenefilter(graphics_filter)
         region = self.getCurrentRegion()
+        # FIXME: the below needs to go in setCurrentRegion
         scene = region.getScene()
         fieldmodule = region.getFieldmodule()
         self._selectionGroup = fieldmodule.createFieldGroup()
@@ -291,9 +282,9 @@ class ZincWidget(QtOpenGL.QGLWidget):
 
         self._scene_viewer.viewAll()
 
-#  Not really applicable to us yet.
-#         self._selection_notifier = scene.createSelectionnotifier()
-#         self._selection_notifier.setCallback(self._zincSelectionEvent)
+        #  Not really applicable to us yet.
+        self._selection_notifier = scene.createSelectionnotifier()
+        self._selection_notifier.setCallback(self._zincSelectionEvent)
 
         self._scene_viewer_notifier = self._scene_viewer.createSceneviewernotifier()
         self._scene_viewer_notifier.setCallback(self._zincSceneviewerEvent)
@@ -376,10 +367,20 @@ class ZincWidget(QtOpenGL.QGLWidget):
         if event.getChangeFlags() & Sceneviewerevent.CHANGE_FLAG_REPAINT_REQUIRED:
             self.updateGL()
 
-#  Not applicable at the current point in time.
-#     def _zincSelectionEvent(self, event):
-#         print(event.getChangeFlags())
-#         print('go the selection change')
+    #  Not applicable at the current point in time.
+    def _zincSelectionEvent(self, event):
+        flags = event.getChangeFlags()
+        print "change flags", flags
+        
+        # print('go the selection change')
+        if event.getChangeFlags() == Selectionevent.CHANGE_FLAG_ADD:
+            print "selection added"
+            
+        elif event.getChangeFlags() == Selectionevent.CHANGE_FLAG_REMOVE:
+            print "selection removed"
+
+        elif event.getChangeFlags() == Selectionevent.CHANGE_FLAG_FINAL:
+            print "selection final"
 
     # resizeGL start
     def resizeGL(self, width, height):
@@ -423,10 +424,13 @@ class ZincWidget(QtOpenGL.QGLWidget):
             x = mouseevent.x()
             y = mouseevent.y()
             # Construct a small frustum to look for nodes in.
-            root_region = self.getCurrentRegion()
-            root_region.beginHierarchicalChange()
+            current_region = self.getCurrentRegion()
+            current_region.beginHierarchicalChange()
             self._selectionBox.setVisibilityFlag(False)
-
+            
+            item = None
+            domain = None
+            
             if (x != self._selectionPositionStart[0] and y != self._selectionPositionStart[1]):
                 left = min(x, self._selectionPositionStart[0])
                 right = max(x, self._selectionPositionStart[0])
@@ -446,6 +450,9 @@ class ZincWidget(QtOpenGL.QGLWidget):
                 self._scene_picker.setSceneviewerRectangle(self._scene_viewer,
                                                            SCENECOORDINATESYSTEM_LOCAL,
                                                            x - 0.5, y - 0.5, x + 0.5, y + 0.5);
+                
+                fielddomaintype = self._scene_picker.getNearestGraphics().getFieldDomainType()
+                
                 if self._nodeSelectMode and \
                         self._elemSelectMode and \
                         self._selectionMode == _SelectionMode.EXCLUSIVE and not \
@@ -460,6 +467,13 @@ class ZincWidget(QtOpenGL.QGLWidget):
                             in [Field.DOMAIN_TYPE_DATAPOINTS]))):
                     node = self._scene_picker.getNearestNode()
                     nodeset = node.getNodeset()
+                    
+                    if __debug__:
+                        if self._scene_picker.getNearestGraphics().getFieldDomainType() \
+                                in [Field.DOMAIN_TYPE_NODES]:
+                            print "selecting node", node.getIdentifier(), "in region", nodeset.getFieldmodule().getRegion().getName()
+                        else:
+                            print "selecting datapoint", node.getIdentifier(), "in region", nodeset.getFieldmodule().getRegion().getName()
 
                     nodegroup = self._selectionGroup.getFieldNodeGroup(nodeset)
                     if not nodegroup.isValid():
@@ -471,11 +485,15 @@ class ZincWidget(QtOpenGL.QGLWidget):
                         self._selectionGroup.clear()
                         if not remove_current:
                             group.addNode(node)
+                            item = node
+                            domain = nodeset
                     elif self._selectionMode == _SelectionMode.ADDITIVE:
                         if group.containsNode(node):
                             group.removeNode(node)
                         else:
                             group.addNode(node)
+                            item = node
+                            domain = nodeset
 
                 if self._elemSelectMode and \
                     (self._scene_picker.getNearestGraphics().getFieldDomainType()
@@ -485,6 +503,10 @@ class ZincWidget(QtOpenGL.QGLWidget):
                             Field.DOMAIN_TYPE_MESH_HIGHEST_DIMENSION]):
                     elem = self._scene_picker.getNearestElement()
                     mesh = elem.getMesh()
+                    
+                    if __debug__: print "selecting element", elem.getIdentifier(),\
+                        "of field domain type", fielddomaintype,\
+                        "in region", mesh.getFieldmodule().getRegion().getName()
 
                     elementgroup = self._selectionGroup.getFieldElementGroup(mesh)
                     if not elementgroup.isValid():
@@ -496,15 +518,23 @@ class ZincWidget(QtOpenGL.QGLWidget):
                         self._selectionGroup.clear()
                         if not remove_current:
                             group.addElement(elem)
+                            item = elem
+                            domain = mesh
                     elif self._selectionMode == _SelectionMode.ADDITIVE:
                         if group.containsElement(elem):
                             group.removeElement(elem)
                         else:
                             group.addElement(elem)
+                            item = elem
+                            domain = mesh
 
 
-            root_region.endHierarchicalChange()
+            current_region.endHierarchicalChange()
             self._selectionMode = _SelectionMode.NONE
+            if not item is None:
+                self.graphicsSelected.emit(item
+                                           , fielddomaintype)
+
         else:
             scene_input = self._scene_viewer.createSceneviewerinput()
             scene_input.setPosition(mouseevent.x(), mouseevent.y())
