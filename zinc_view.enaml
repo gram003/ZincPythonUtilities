@@ -127,6 +127,7 @@ enamldef MyMenuBar(MenuBar): mb:
 enamldef RegistrationManualDockPane(DockPane):
     attr controller = parent.controller
     title = "Registration"
+    alias statusText: statusText
     Container:
         padding = 0
 #         constraints = [
@@ -137,36 +138,45 @@ enamldef RegistrationManualDockPane(DockPane):
         GroupBox:
             padding = 0
             constraints = [
-                            hbox(mirror, axis)
+                            hbox(mirror, axis),
+#                             axis.width == 100
                            ]
             title = 'Data'
             PushButton: mirror:
                 text = 'Mirror'
                 clicked :: controller.mirror(axis.selected)
                 hug_width = 'required'
-                tool_tip = "Mirror data about centroid"
+                tool_tip = "Mirror data about its centroid"
             ObjectCombo: axis:
                 items = ['x', 'y', 'z']
                 hug_width = 'required'
             
         GroupBox:
             constraints = [
-                            vbox(ag, manual)
-                           ]
+                            vbox(selectPoints, manual),
+                            ]
             padding = 0
-            title = "Manual"
+            title = "Manual- HMF"
             #flat = True
-            GroupBox: ag:
-                # How do I provide some affordance about this. E.g how many points to select
-                RadioButton: sel_data:
-                    text = "Sel data"
-                    clicked :: controller.select_data()
-                RadioButton: sel_nodes:
-                    text = "Sel nodes"
-                    clicked :: controller.select_nodes()
+#             GroupBox: ag:
+#                 # How do I provide some affordance about this. E.g how many points to select
+#                 RadioButton: sel_data:
+#                     text = "Sel data"
+#                     clicked :: controller.select_data(additive=False)
+#                 RadioButton: sel_nodes:
+#                     text = "Sel nodes"
+#                     clicked :: controller.select_nodes(additive=False)
+            PushButton: selectPoints:
+                text = 'Select points'
+                checkable = True
+                clicked ::
+                    controller.select_manual_reg()
+                    statusText.text = "Select a node"
+            Label: statusText:
+                visible = False
             PushButton: manual:
                 text = 'Register'
-                clicked :: None
+                clicked :: controller.register_manual()
 
         GroupBox:
             title = 'Automatic'
@@ -289,8 +299,9 @@ enamldef MyToolBar(ToolBar):
 #         tool_tip = text
 
 enamldef MyStatusBar(StatusBar):
+    alias statusLabel: statusLabel
     StatusItem:
-        Label:
+        Label: statusLabel:
             text = "Status"
 
 enamldef Main(MainWindow): main:
@@ -299,8 +310,8 @@ enamldef Main(MainWindow): main:
     attr controller
     MyMenuBar:
         pass
-    MyStatusBar:
-        pass
+    MyStatusBar: sb:
+        statusLabel.text << reg_man_pane.statusText.text
     MyToolBar: tb:
         pass
 #     Conditional:

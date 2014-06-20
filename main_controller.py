@@ -22,21 +22,25 @@ class MainController(object):
          
     def setZincWidget(self, zw):
         self._zw = zw
+        
+        self._zw.graphicsSelected.connect(self._onGraphicsSelected)
 
         if __debug__:
             import os
             os.chdir("test")
-            #self.open_file("abi_femur.json")
-            self.open_file("test_2d_fit.json")
             self._model.setPointSize(1) # this should be in the json
+            self.open_file("abi_femur.json")
+#             self.open_file("test_2d_fit.json")
             os.chdir("..")
-            # register the mesh to the mirrored the data 
-#             f = self._model
+
+#             # register the mesh to the mirrored the data 
+            f = self._model
 #             f.register_automatic(translate=True, rotate=False, scale=False)
-#             f.data_mirror(1) # mirror in y axis
+            f.data_mirror(1) # mirror in y axis
 #             f.register_automatic(translate=True, rotate=True)
+#             
+#             self._zw.viewAll()
             
-            self._zw.viewAll()
 #             # convert to cubic
 #             self.convert_to_cubic()
 #             # hide initial mesh
@@ -50,14 +54,18 @@ class MainController(object):
 #             self.project()
 #             self.fit()
             
-            self.convert_to_cubic()
-            # hide initial mesh
-            self.view_data(True)
-            self.view_reference(True)
-            self.view_fitted(True)
+#             self.convert_to_cubic()
+#             self.open_file("test_2d_fit.json")
+#             # hide initial mesh
+#             self.view_data(True)
+#             self.view_reference(True)
+#             self.view_fitted(True)
 #             self.view_data_cubic(True)
 #             self.view_reference_cubic(False)
 #             self.view_fitted_cubic(True)
+
+    def _onGraphicsSelected(self, item, fieldDomainType):
+        print funcname(), "domainType", fieldDomainType, "item id", item.getIdentifier()
                    
     def on_closed(self):
         print funcname()
@@ -128,13 +136,14 @@ class MainController(object):
     # Selection mode
     #
 
-    def select_data(self):
+    def select_data(self, additive=False):
         self._zw.setSelectModeData()
-        self._zw.setSelectionModeAdditive(True)
+        self._zw.setSelectionModeAdditive(additive)
 
-    def select_nodes(self):
+    def select_nodes(self, additive=False):
         self._zw.setSelectModeNode()
-        self._zw.setSelectionModeAdditive(True)
+        self._zw.setSelectionModeAdditive(additive)
+        
     def select_manual_reg(self):
         print funcname()
         self._zw.setSelectModeNode()
@@ -162,9 +171,7 @@ class MainController(object):
         undo = self._model.register_automatic(translate, rotate, scale)
         self._undoStack.append(undo)
 
-    def register_manual(self):
-        # least squares fit between 3 or more points on each body
-        pass
+        
     
     #
     # Fitting
