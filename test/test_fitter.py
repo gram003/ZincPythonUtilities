@@ -32,7 +32,7 @@ class Test(unittest.TestCase):
         
         
 
-    @unittest.skip("")
+    @unittest.skip("FIXME: currently broken")
     def testRegisterAutomatic(self):
         # for a directory context manager see
         # http://stackoverflow.com/questions/431684/how-do-i-cd-in-python
@@ -47,7 +47,7 @@ class Test(unittest.TestCase):
         self.assertFalse(np.allclose(a,b), "Initial and registered arrays are equal")
         
 
-    @unittest.skip("")
+    @unittest.skip("FIXME: currently broken")
     def testMirror(self):
         f = self.fitter
         f.load_problem("abi_femur.json")
@@ -64,7 +64,7 @@ class Test(unittest.TestCase):
         print b
         self.assertFalse(np.allclose(a,b), "Initial and mirrored arrays are equal")
 
-    #@unittest.skip("")
+    @unittest.skip("")
     def testConvertToCubic(self):
         f = self.fitter
         path = "test_2d_fit.json"
@@ -74,6 +74,13 @@ class Test(unittest.TestCase):
         f.convert_to_cubic()
         
         # FIXME: how to know that it worked? It didn't throw an exception?
+        
+    #@unittest.skip("")
+    def testCreateHostMesh(self):
+        f = self.fitter
+        f.load_problem("abi_femur.json")
+        f.createBoundingBoxMesh(f._region_linear, "coordinates")
+        
         
 
 
