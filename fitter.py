@@ -835,17 +835,16 @@ class Fitter(object):
         return mygraphics
     
     def _create_graphics_nodes(self, region, coords_field, **kwargs):
-        ctxt = self.context()
         
         mygraphics = []
         
-        colour = kwargs.get("colour", "white")
+        #colour = kwargs.get("colour", "white")
         
         mygraphics.extend(graphics.createNodeGraphics(region,
                                         nodes_name='nodes',
                                         coordinate_field_name=coords_field,
-                                        colour=colour,
-                                        nodes_size=self._pointSize))
+                                        nodes_size=self._pointSize,
+                                        **kwargs))
         return mygraphics
     
     def _create_graphics_lines(self, region, coords_field, **kwargs):
