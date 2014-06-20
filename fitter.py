@@ -177,7 +177,7 @@ class Fitter(object):
 
         return restore
     
-    def createBoundingBoxMesh(self, region, coordinateFieldName):
+    def _createBoundingBoxMesh(self, region, coordinateFieldName):
         # get the list of nodes in the region
         with get_field_module(region) as fm:
             nodeset = fm.findNodesetByFieldDomainType(Field.DOMAIN_TYPE_NODES)
@@ -216,25 +216,29 @@ class Fitter(object):
             
             #mesh.create_nodes(self.context(), region, host_nodes, field_name="host_"+coordinateFieldName, merge=False)
             element = [[i for i in xrange(max_node+1, max_node+9)]]
-            hostGroup = fm.createFieldGroup()
-            hostGroup.setSubelementHandlingMode(FieldGroup.SUBELEMENT_HANDLING_MODE_FULL)
-            hostGroup.setManaged(True) # prevent group from being destroyed when not in use
-            hostGroup.setName('host')
+            gefHost = fm.createFieldGroup()
+            gefHost.setSubelementHandlingMode(FieldGroup.SUBELEMENT_HANDLING_MODE_FULL)
+            gefHost.setManaged(True) # prevent group from being destroyed when not in use
+            gefHost.setName('host')
             mesh3d = fm.findMeshByDimension(3)
-            hostElemGroup = hostGroup.createFieldElementGroup(mesh3d)
+            hostElemGroup = gefHost.createFieldElementGroup(mesh3d)
             meshGroup = hostElemGroup.getMeshGroup()
             mesh.linear_mesh(meshGroup, host_nodes, element, coordinate_field_name="host_"+coordinateFieldName)
             
-            return hostGroup
+            return gefHost
         
         # TODO: create a mesh group for the host mesh and pass this to linear_mesh instead of the region
         
         # newly created element(s) will have the highest element id(s)
 
-    def register_hostmesh(self):
+    def hostmesh_register_setup(self):
         """
-        Given a list of nodes and a list of target datapoints host mesh fit
-        the nodes to the data.
+        Given a list of fiducial marker nodes and a list of target datapoints
+        host mesh fit the nodes to the data.
+        This works by creating a (fiducial) marker field in the datapoints
+        nodeset corresponding to the target datapoints and then copying the
+        node coordinates to this marker field. The marker field is then used
+        to generate  
         """
         undoFitted = self.create_fitted_nodes_undo(self._region_linear)
         undoReference = self.create_reference_nodes_undo(self._region_linear)
@@ -243,19 +247,21 @@ class Fitter(object):
             undoReference()
         
         # FIXME: get nodes from selection
-        nodes = [1,2,3,4]
-        targets = [6,7,8,9] # datapoints
+        nodes = [9, 39, 89, 25, 90, 129]
+        datapoints = [160, 549, 112, 19, 428, 274]
+        
+        # Create a dict where the target data point ids are the keys. This is
+        # because we need to get the datapoints back later by iterating a
+        # nodeset and they will in numerical order then. 
+        targets = dict(zip(nodes, datapoints))
         
         # Create a bounding box
         # This has to be done in the same region as the mesh so it will need to
         # use the next highest node numbers.
         # FIXME: Will this break cubic conversion? I could delete this element after the fit is done.
         # FIXME: Could I clone the region to work around this?
-        
-        with get_field_module(self._region_linear)as fm:
-            mgHost = fm.createFieldGroup()
-            
-        hostGroup = self.createBoundingBoxMesh(self._region_linear, self._coords_name)
+                    
+        gefHost = self._createBoundingBoxMesh(self._region_linear, self._coords_name)
         
 #         with get_field_module(self._region_linear) as fm:
 #             mesh3d = fm.findMeshByDimension(3)
@@ -268,13 +274,203 @@ class Fitter(object):
 
         self._region_linear.writeFile("host.exregi")
         
-        self._host_graphics = self._create_graphics_nodes(self._region_linear, "host_"+self._coords_name, sub_group_field=hostGroup)
-        self._host_graphics.extend(self._create_graphics_lines(self._region_linear, "host_"+self._coords_name, sub_group_field=hostGroup))
+        self._host_graphics = self._create_graphics_nodes(self._region_linear, "host_"+self._coords_name, sub_group_field=gefHost)
+        self._host_graphics.extend(self._create_graphics_lines(self._region_linear, "host_"+self._coords_name, sub_group_field=gefHost))
         for g in self._host_graphics:
             g.setVisibilityFlag(True)
 
-        return restore
+        # define stored found location and create projections
+        # FIXME: needs refactoring
         
+        with get_field_module(self._region_linear) as fm:
+            
+            mesh3d = fm.findMeshByDimension(3)
+                    
+            node_coordinates = fm.findFieldByName(self._coords_name)
+            data_coordinates = fm.findFieldByName(self._data_coords_name)
+            host_coordinates = fm.findFieldByName('host_coordinates')
+            marker_coordinates = fm.createFieldFiniteElement(3)
+            marker_coordinates.setName('marker_coordinates')
+            self.marker_coordinates = marker_coordinates
+            
+            hostElemGroup = gefHost.getFieldElementGroup(mesh3d)
+            meshGroup = hostElemGroup.getMeshGroup()
+            
+            # create a nodeset group containing the selected nodes
+            sData = fm.findNodesetByFieldDomainType(Field.DOMAIN_TYPE_DATAPOINTS)
+    
+            gnfData = fm.createFieldNodeGroup(sData)
+            gsData = gnfData.getNodesetGroup()
+            gsData.removeAllNodes()
+            for dindex in datapoints:
+                gsData.addNode(sData.findNodeByIdentifier(dindex))
+                
+            # create a nodeset group containing the selected nodes
+            sData = fm.findNodesetByFieldDomainType(Field.DOMAIN_TYPE_DATAPOINTS)
+    
+            gnfData = fm.createFieldNodeGroup(sData)
+            gsData = gnfData.getNodesetGroup()
+            gsData.removeAllNodes()
+            for dindex in datapoints:
+                gsData.addNode(sData.findNodeByIdentifier(dindex))
+            
+            # store it so other methods can use it    
+            self._hmf_gsData = gsData
+            
+            # Copy the corresponding node coords to the marker field on the
+            # datapoints nodeset.
+
+            sNodes = fm.findNodesetByFieldDomainType(Field.DOMAIN_TYPE_NODES)
+            dataTemplate = sData.createNodetemplate()
+            dataTemplate.defineField(marker_coordinates)
+            cache = fm.createFieldcache()
+            print "copy node coords to marker field in data nodeset" 
+            for node_id in nodes:
+                print 'node', node_id,
+                node = sNodes.findNodeByIdentifier(node_id)
+                cache.setNode(node)
+                result, outValues = node_coordinates.evaluateReal(cache, 3)
+                print result, outValues
+                dp_id = targets[node_id]
+                dp = sData.findNodeByIdentifier(dp_id)
+                cache.setNode(dp)
+                # assign to new field
+                dp.merge(dataTemplate)
+                marker_coordinates.assignReal(cache, outValues)
+                result, outValues = data_coordinates.evaluateReal(cache, 3)
+                print 'dp', dp_id,
+                print "coords", result, outValues
+                result, outValues = marker_coordinates.evaluateReal(cache, 3)
+                print "marker", result, outValues
+                
+            # embed the fiducial markers 
+            found_location = fm.createFieldFindMeshLocation(marker_coordinates, host_coordinates, meshGroup)
+            found_location.setSearchMode(FieldFindMeshLocation.SEARCH_MODE_EXACT)
+            stored_location = fm.createFieldStoredMeshLocation(mesh3d)
+            stored_location.setName('stored_location')
+
+            dp_iter = gsData.createNodeiterator()    
+            dataTemplate = sData.createNodetemplate()
+            dataTemplate.defineField(stored_location)
+            cache = fm.createFieldcache()
+            datapoint = dp_iter.next()
+            if __debug__: print "Embedding fiducial markers..."
+            while datapoint.isValid():
+                if __debug__: print "dp", datapoint.getIdentifier(),
+                cache.setNode(datapoint)
+                element, xi = found_location.evaluateMeshLocation(cache, 3)
+                if element.isValid():
+                    datapoint.merge(dataTemplate)
+                    stored_location.assignMeshLocation(cache, element, xi)
+                    if __debug__: print "elem", element.getIdentifier(), xi
+                 
+                datapoint = dp_iter.next()
+
+            # embed the nodes in the host mesh
+            nodes_found_location = fm.createFieldFindMeshLocation(node_coordinates, host_coordinates, meshGroup)
+            nodes_found_location.setSearchMode(FieldFindMeshLocation.SEARCH_MODE_EXACT)
+            nodes_stored_location = fm.createFieldStoredMeshLocation(mesh3d)
+            nodes_stored_location.setName('nodes_stored_location')
+
+            # WIP modify the below to create the embedding fields
+            sNodes = fm.findNodesetByFieldDomainType(Field.DOMAIN_TYPE_NODES)
+            nd_iter = sNodes.createNodeiterator()
+     
+            nodeTemplate = sNodes.createNodetemplate()
+            nodeTemplate.defineField(nodes_stored_location)
+            cache = fm.createFieldcache()
+            node = nd_iter.next()
+            if __debug__: print "Embedding nodes..."
+            while node.isValid():
+                if __debug__: print "nd", node.getIdentifier(),
+                cache.setNode(node)
+                element, xi = nodes_found_location.evaluateMeshLocation(cache, 3)
+                if element.isValid():
+                    node.merge(nodeTemplate)
+                    nodes_stored_location.assignMeshLocation(cache, element, xi)
+                    if __debug__: print "elem", element.getIdentifier(), xi
+
+                node = nd_iter.next()
+            
+            # At initialisation this field is the same as the marker_coordinates field. However
+            # it is required so that the optimizer can recalculate the new host coordinates.
+            self._hmf_projected_coordinates = fm.createFieldEmbedded(host_coordinates, stored_location)
+            
+            error_vector = fm.createFieldSubtract(self._hmf_projected_coordinates, data_coordinates)
+            error_vector.setName('error')
+            self._hmf_error = error_vector
+
+            # Embed the nodes in the host mesh so that we can later use it for transforming them 
+
+            self._region_linear.writeFile("proj.exregi")
+
+            with get_scene(self._region_linear) as scene:
+                self._createProjectionGraphics(scene, self._hmf_projected_coordinates, gnfData, error_vector)
+ 
+        return restore
+
+    def hostmesh_register_fit(self):
+        # define an optimisation problem    
+        with get_field_module(self._region_linear) as fm:
+            data_nodeset_group = self._hmf_gsData
+            hmf_objective = fm.createFieldNodesetSumSquares(self._hmf_error, self._hmf_gsData)
+
+            self._opt = fm.createOptimisation()
+            self._opt.setMethod(Optimisation.METHOD_LEAST_SQUARES_QUASI_NEWTON)
+            self._opt.addObjectiveField(hmf_objective)
+            # self._opt.addObjectiveField(self._volume_smoothing_objective)
+            
+            host_coords = fm.findFieldByName('host_coordinates')
+            self._opt.addIndependentField(host_coords)
+            #self._opt.setAttributeInteger(Optimisation.ATTRIBUTE_MAXIMUM_ITERATIONS, 1)
+             
+#             print "HMF RMS error"
+#             # Diagnostics: compute RMS error
+#             field = hmf_objective
+#             cache = fm.createFieldcache()
+#             dp_iter = data_nodeset_group.createNodeiterator()
+#             dp = dp_iter.next()
+#             while dp.isValid():
+#                 cache.setNode(dp)
+#                 result, outValues = field.evaluateReal(cache, 3)
+#                 print result, np.sum(outValues)
+#                 dp = dp_iter.next()
+
+            print funcname(), "starting optimisation"
+            self._opt.optimise()
+            print funcname(), "finished optimisation"
+    
+            # FIXME: generate an event here
+            print self._opt.getSolutionReport()
+            
+            # Transform the nodes based on the new host configuration
+            
+            # Need to create an embedded field for the entire nodes nodeset so
+            # that we know the xi coords and can evaluate the new geometric location.
+            # Done in hostmesh_register_setup
+            
+            host_coordinates = fm.findFieldByName('host_coordinates')
+            nodes_stored_location = fm.findFieldByName('nodes_stored_location')
+            embedded_coordinates = fm.createFieldEmbedded(host_coordinates, nodes_stored_location)
+            
+            # replace node coordinates with embedded_coordinates
+            sNodes = fm.findNodesetByFieldDomainType(Field.DOMAIN_TYPE_NODES)
+            nodes_coordinates = fm.findFieldByName('coordinates')
+            nd_iter = sNodes.createNodeiterator()
+            nodeTemplate = sNodes.createNodetemplate()
+            nodeTemplate.defineField(embedded_coordinates)
+            cache = fm.createFieldcache()
+            node = nd_iter.next()
+            if __debug__: print "Transforming nodes..."
+            while node.isValid():
+                if __debug__: print "nd", node.getIdentifier(),
+                cache.setNode(node)
+                result, outValues = embedded_coordinates.evaluateReal(cache, 3)
+                nodes_coordinates.assignReal(cache, outValues)
+            
+                node = nd_iter.next()
+
+            self._region_linear.writeFile("hmf.exregi")
     
     def create_data_undo(self, region):
         # save the original data state
@@ -552,43 +748,42 @@ class Fitter(object):
             data_coords = fm.findFieldByName(self._data_coords_name)
             self._error_vector = fm.createFieldSubtract(self._projected_coordinates, data_coords)
             
-            self._createProjectionGraphics(region)
+            with get_scene(region) as scene:
+                self._createProjectionGraphics(scene, self._projected_coordinates, self._gnfData, self._error_vector)
 
     # FIXME: this should probably be in a "view" class
-    def _createProjectionGraphics(self, region):
-        materials_module = self.context().getMaterialmodule()
+    def _createProjectionGraphics(self, scene, projected_coordinates, gnfData, error_vector):
+        materials_module = scene.getMaterialmodule()
         materials_module.defineStandardMaterials()
         blue = materials_module.findMaterialByName('blue')
         
-        with get_scene(region) as scene:
+        # projected points
+        if not self._graphicsProjectedPoints is None:
+            scene.removeGraphics(self._graphicsProjectedPoints)
+        proj = scene.createGraphicsPoints()
+        # save graphics object so that it can be destroyed later
+        self._graphicsProjectedPoints = proj
+        proj.setFieldDomainType(Field.DOMAIN_TYPE_DATAPOINTS)
+        proj.setCoordinateField(projected_coordinates)
+        # consider only the selected data points group
+        proj.setSubgroupField(gnfData)
+        proj.setMaterial(blue)
+        attr = proj.getGraphicspointattributes()
+        attr.setGlyphShapeType(Glyph.SHAPE_TYPE_SPHERE)
+        attr.setBaseSize([self._pointSize*1.1])
         
-            # projected points
-            if not self._graphicsProjectedPoints is None:
-                scene.removeGraphics(self._graphicsProjectedPoints)
-            proj = scene.createGraphicsPoints()
-            # save graphics object so that it can be destroyed later
-            self._graphicsProjectedPoints = proj
-            proj.setFieldDomainType(Field.DOMAIN_TYPE_DATAPOINTS)
-            proj.setCoordinateField(self._projected_coordinates)
-            # consider only the selected data points group
-            proj.setSubgroupField(self._gnfData)
-            proj.setMaterial(blue)
-            attr = proj.getGraphicspointattributes()
-            attr.setGlyphShapeType(Glyph.SHAPE_TYPE_SPHERE)
-            attr.setBaseSize([self._pointSize])
-            
-            # error lines
-            if not self._graphicsErrorLines is None:
-                scene.removeGraphics(self._graphicsErrorLines)
-            err = scene.createGraphicsPoints()
-            self._graphicsErrorLines = err
-            err.setFieldDomainType(Field.DOMAIN_TYPE_DATAPOINTS)
-            err.setCoordinateField(self._projected_coordinates)
-            err.setSubgroupField(self._gnfData)
-            attr = err.getGraphicspointattributes()
-            attr.setGlyphShapeType(Glyph.SHAPE_TYPE_LINE)
-            attr.setOrientationScaleField(self._error_vector)
-            attr.setScaleFactors([-1, 0, 0])
+        # error lines
+        if not self._graphicsErrorLines is None:
+            scene.removeGraphics(self._graphicsErrorLines)
+        err = scene.createGraphicsPoints()
+        self._graphicsErrorLines = err
+        err.setFieldDomainType(Field.DOMAIN_TYPE_DATAPOINTS)
+        err.setCoordinateField(projected_coordinates)
+        err.setSubgroupField(gnfData)
+        attr = err.getGraphicspointattributes()
+        attr.setGlyphShapeType(Glyph.SHAPE_TYPE_LINE)
+        attr.setOrientationScaleField(error_vector)
+        attr.setScaleFactors([-1, 0, 0])
         
     def fit(self, alpha=0, beta=0):
         region = self._region_cubic

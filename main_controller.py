@@ -135,6 +135,14 @@ class MainController(object):
     def select_nodes(self):
         self._zw.setSelectModeNode()
         self._zw.setSelectionModeAdditive(True)
+    def select_manual_reg(self):
+        print funcname()
+        self._zw.setSelectModeNode()
+        self._zw.setSelectionModeAdditive(False)
+        self._model.hostmesh_register_setup()
+
+    def register_manual(self):
+        self._model.hostmesh_register_fit()
 
     def select_faces(self):
         self._zw.setSelectModeFace()
