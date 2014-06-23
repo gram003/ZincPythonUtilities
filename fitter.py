@@ -73,8 +73,8 @@ class Fitter(object):
             tm.setDefaultTessellation(t)
 
 
-    def _selectionCallback(self, evt):
-        print funcname(), evt
+#     def _selectionCallback(self, evt):
+#         print funcname(), evt
 
     def context(self):
         return self._context
@@ -124,22 +124,24 @@ class Fitter(object):
         self.show_initial(False)
         self.show_fitted(True)
         
-        # Create a callable selection notifier class
-        # http://cmiss.sourceforge.net/classOpenCMISS_1_1Zinc_1_1Selectioncallback.html
-        class SelectionEvent(Selectioncallback):
-            def __init__(self):
-                pass
-            def __call__(self, evt):
-                print evt
-                
-        callbackObj = SelectionEvent()
-        
-        with get_scene(self._root_region) as scene:
-            notifier = scene.createSelectionnotifier()
-            notifier.setCallback(callbackObj)
-            notifier.setCallback(self._selectionCallback)
-        
+#         # The Selectionnotifier is not really what we want as it only tells
+#         # us if the designated selection group has changed. We really want to
+#         # know the details of what was added or removed.
+#         # Create a callable selection notifier class
+#         # http://cmiss.sourceforge.net/classOpenCMISS_1_1Zinc_1_1Selectioncallback.html
+#         class SelectionEvent(Selectioncallback):
+#             def __init__(self):
+#                 pass
+#             def __call__(self, evt):
+#                 print evt
+# 
+#         callbackObj = SelectionEvent()
 
+#         with get_scene(self._root_region) as scene:
+#             notifier = scene.createSelectionnotifier()
+#             notifier.setCallback(callbackObj)
+#             notifier.setCallback(self._selectionCallback)
+        
 
     def register_automatic(self, translate=True, rotate=True, scale=True):
         
