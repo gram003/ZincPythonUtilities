@@ -14,6 +14,7 @@ from opencmiss.zinc.context import Context
 enamldef MyMenuBar(MenuBar): mb:
     attr path : unicode = u""
     attr controller = parent.controller
+    name = 'mb'
     Menu:
         title = '&File'
 #         Action:
@@ -95,31 +96,37 @@ enamldef MyMenuBar(MenuBar): mb:
 #         ActionGroup:
         Action:
             text = 'Data'
+            name = 'view_data'
             triggered :: controller.view_data(checked)
             checkable = True 
             checked = True
         Action:
             text = 'Reference'
+            name = 'view_reference'
             triggered :: controller.view_reference(checked)
             checkable = True 
             checked = True
         Action:
             text = 'Fitted'
+            name = 'view_fitted'
             triggered :: controller.view_fitted(checked) 
             checkable = True
             checked = True
         Action:
             text = 'Cubic data'
+            name = 'cubic_data'
             triggered :: controller.view_data_cubic(checked) 
             checkable = True
             checked = True
         Action:
             text = 'Cubic reference'
+            name = 'cubic_reference'
             triggered :: controller.view_reference_cubic(checked) 
             checkable = True
             checked = True
         Action:
             text = 'Cubic fitted'
+            name = 'cubic_fitted'
             triggered :: controller.view_fitted_cubic(checked) 
             checkable = True
             checked = True
@@ -209,11 +216,15 @@ enamldef FitDockPane(DockPane):
             RadioButton:
                 checkable = True
                 text = 'Select data'
-                clicked :: controller.select_data()
+                clicked :: controller.select_data(additive=True)
             RadioButton:
                 checkable = True
                 text = 'Select faces'
                 clicked :: controller.select_faces()
+            RadioButton:
+                checkable = True
+                text = 'Select nodes'
+                clicked :: controller.select_nodes(additive=True)
         GroupBox:
             PushButton:
     #             Action:
