@@ -63,7 +63,7 @@ class ZincWidget(QtOpenGL.QGLWidget):
         # parameters are
         #     item - element or node
         #     Field.DomainType
-        graphicsSelected = QtCore.pyqtSignal(object, object)
+        graphicsPicked = QtCore.pyqtSignal(object, object)
     
 
     # init start
@@ -282,9 +282,9 @@ class ZincWidget(QtOpenGL.QGLWidget):
 
         self._scene_viewer.viewAll()
 
-        #  Not really applicable to us yet.
-        self._selection_notifier = scene.createSelectionnotifier()
-        self._selection_notifier.setCallback(self._zincSelectionEvent)
+#         #  Not really applicable to us yet.
+#         self._selection_notifier = scene.createSelectionnotifier()
+#         self._selection_notifier.setCallback(self._zincSelectionEvent)
 
         self._scene_viewer_notifier = self._scene_viewer.createSceneviewernotifier()
         self._scene_viewer_notifier.setCallback(self._zincSceneviewerEvent)
@@ -367,20 +367,20 @@ class ZincWidget(QtOpenGL.QGLWidget):
         if event.getChangeFlags() & Sceneviewerevent.CHANGE_FLAG_REPAINT_REQUIRED:
             self.updateGL()
 
-    #  Not applicable at the current point in time.
-    def _zincSelectionEvent(self, event):
-        flags = event.getChangeFlags()
-        print "change flags", flags
-        
-        # print('go the selection change')
-        if event.getChangeFlags() == Selectionevent.CHANGE_FLAG_ADD:
-            print "selection added"
-            
-        elif event.getChangeFlags() == Selectionevent.CHANGE_FLAG_REMOVE:
-            print "selection removed"
-
-        elif event.getChangeFlags() == Selectionevent.CHANGE_FLAG_FINAL:
-            print "selection final"
+#     #  Not applicable at the current point in time.
+#     def _zincSelectionEvent(self, event):
+#         flags = event.getChangeFlags()
+#         print "change flags", flags
+#         
+#         # print('go the selection change')
+#         if event.getChangeFlags() == Selectionevent.CHANGE_FLAG_ADD:
+#             print "selection added"
+#             
+#         elif event.getChangeFlags() == Selectionevent.CHANGE_FLAG_REMOVE:
+#             print "selection removed"
+# 
+#         elif event.getChangeFlags() == Selectionevent.CHANGE_FLAG_FINAL:
+#             print "selection final"
 
     # resizeGL start
     def resizeGL(self, width, height):
@@ -486,14 +486,14 @@ class ZincWidget(QtOpenGL.QGLWidget):
                         if not remove_current:
                             group.addNode(node)
                             item = node
-                            domain = nodeset
+                            #domain = nodeset
                     elif self._selectionMode == _SelectionMode.ADDITIVE:
                         if group.containsNode(node):
                             group.removeNode(node)
                         else:
                             group.addNode(node)
                             item = node
-                            domain = nodeset
+                            #domain = nodeset
 
                 if self._elemSelectMode and \
                     (self._scene_picker.getNearestGraphics().getFieldDomainType()
@@ -519,21 +519,19 @@ class ZincWidget(QtOpenGL.QGLWidget):
                         if not remove_current:
                             group.addElement(elem)
                             item = elem
-                            domain = mesh
+                            #domain = mesh
                     elif self._selectionMode == _SelectionMode.ADDITIVE:
                         if group.containsElement(elem):
                             group.removeElement(elem)
                         else:
                             group.addElement(elem)
                             item = elem
-                            domain = mesh
-
+                            #domain = mesh
 
             current_region.endHierarchicalChange()
             self._selectionMode = _SelectionMode.NONE
             if not item is None:
-                self.graphicsSelected.emit(item
-                                           , fielddomaintype)
+                self.graphicsPicked.emit(item, fielddomaintype)
 
         else:
             scene_input = self._scene_viewer.createSceneviewerinput()
