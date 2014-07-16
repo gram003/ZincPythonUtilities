@@ -23,7 +23,7 @@ class MainController(object):
     def setZincWidget(self, zw):
         self._zw = zw
         
-        self._zw.graphicsSelected.connect(self._onGraphicsSelected)
+        self._zw.graphicsPicked.connect(self._onGraphicsSelected)
 
         if __debug__:
             import os
