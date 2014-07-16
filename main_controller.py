@@ -139,6 +139,15 @@ class MainController(object):
     def select_data(self, additive=False):
         self._zw.setSelectModeData()
         self._zw.setSelectionModeAdditive(additive)
+        self._model.storeSelectedFaces()
+
+    def select_faces(self):
+        self._zw.setSelectModeFace()
+        self._zw.setSelectionModeAdditive(True)
+
+    def select_nodes(self, additive=False):
+        self._zw.setSelectModeData()
+        self._zw.setSelectionModeAdditive(additive)
 
     def select_nodes(self, additive=False):
         self._zw.setSelectModeNode()
@@ -153,9 +162,6 @@ class MainController(object):
     def register_manual(self):
         self._model.hostmesh_register_fit()
 
-    def select_faces(self):
-        self._zw.setSelectModeFace()
-        self._zw.setSelectionModeAdditive(True)
 
     #
     # Registration
