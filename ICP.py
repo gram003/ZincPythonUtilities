@@ -120,7 +120,7 @@ def boundingBox(x):
     return min_, max_
 
 #======================================================================#
-def fitDataEPDP( X, data, xtol=1e-5, maxfev=0, translate=True, rotate=True, scale=True):
+def fitDataEPDP( X, data, xtol=1e-5, maxfev=0, translate=True, rotate=True, scale=True, **kwargs):
     """ fit list of points X to list of points data by minimising
     least squares distance between each point in X and closest neighbour
     in data. Rigid transformation plus scaling.
@@ -159,6 +159,10 @@ def fitDataEPDP( X, data, xtol=1e-5, maxfev=0, translate=True, rotate=True, scal
     t0 = scipy.array([0.0,0.0,0.0,0.0,0.0,0.0,1.0])
     tOpt = leastsq( obj, t0, xtol=xtol, maxfev=maxfev )[0]
     
+    nd = kwargs.get('nodes_to_move', None)
+    if(nd):
+        X = np.array(nd)
+        
     if translate and not rotate:
         XOpt = translateRigid3D( X, tOpt[:6] )
     elif not translate and rotate:
