@@ -460,17 +460,14 @@ class ZincWidget(QtOpenGL.QGLWidget):
                     self._selectionGroup.clear()
 
                 if ((self._nodeSelectMode and \
-                        (self._scene_picker.getNearestGraphics().getFieldDomainType()
-                            in [Field.DOMAIN_TYPE_NODES])) or \
-                    (self._dataSelectMode and \
-                        (self._scene_picker.getNearestGraphics().getFieldDomainType()
-                            in [Field.DOMAIN_TYPE_DATAPOINTS]))):
+                        (fielddomaintype in [Field.DOMAIN_TYPE_NODES])) or \
+                        (self._dataSelectMode and \
+                        (fielddomaintype in [Field.DOMAIN_TYPE_DATAPOINTS]))):
                     node = self._scene_picker.getNearestNode()
                     nodeset = node.getNodeset()
                     
                     if __debug__:
-                        if self._scene_picker.getNearestGraphics().getFieldDomainType() \
-                                in [Field.DOMAIN_TYPE_NODES]:
+                        if fielddomaintype in [Field.DOMAIN_TYPE_NODES]:
                             print "selecting node", node.getIdentifier(), "in region", nodeset.getFieldmodule().getRegion().getName()
                         else:
                             print "selecting datapoint", node.getIdentifier(), "in region", nodeset.getFieldmodule().getRegion().getName()
