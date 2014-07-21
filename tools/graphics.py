@@ -211,5 +211,9 @@ def createSurfaceGraphics(region, **kwargs):
         subGroupField = kwargs.get("sub_group_field", None)
         if subGroupField:
             surfaces.setSubgroupField(subGroupField)
+        
+        ext = kwargs.get('exterior', False)
+        if ext:
+            surfaces.setExterior(True)
             
     return (surfaces,)
