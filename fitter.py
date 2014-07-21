@@ -144,35 +144,58 @@ class Fitter(object):
         
 
     def register_automatic(self, translate=True, rotate=True, scale=True):
-        
-        undoFitted = self.create_fitted_nodes_undo(self._region_linear)
-        undoReference = self.create_reference_nodes_undo(self._region_linear)
-        def restore():
-            undoFitted()
-            undoReference()
-
         # Use Ju's ICP
         import ICP
         # extract nodes into a numpy array
         with get_field_module(self._region_linear) as fm:
             nodeset = fm.findNodesetByFieldDomainType(Field.DOMAIN_TYPE_NODES)
+            
+            # Create the undo function
+            undoFitted = self.create_fitted_nodes_undo(nodeset)
+            undoReference = self.create_reference_nodes_undo(nodeset)
+            def restore():
+                undoFitted()
+                undoReference()
+            
+            # Uses only the exterior nodes to do the fit
+            # Create a node group for exterior nodes
+            fExt = fm.createFieldIsExterior()
+            # create a meshgroup and add
+            gfExt = fm.createFieldGroup()
+            gfExt.setSubelementHandlingMode(FieldGroup.SUBELEMENT_HANDLING_MODE_FULL)
+            #gfExt.setManaged(True) # prevent group from being destroyed when not in use
+            #gfExt.setName('exterior')
+            meshExt = fm.findMeshByDimension(2)
+            geExt = gfExt.createFieldElementGroup(meshExt)
+            sExt = fm.findNodesetByFieldDomainType(Field.DOMAIN_TYPE_NODES)
+            gsExt = gfExt.createFieldNodeGroup(sExt)
+            meshGroup = geExt.getMeshGroup()
+            meshGroup.addElementsConditional(fExt)
+            
+            ng = gsExt.getNodesetGroup()
+            
+            ext_list = mesh.nodes_to_list(ng, 3, self._coords_name)
+            print len(ext_list)
+            
+            # diagnostics: compare with full nodeset
+            master_node_list = mesh.nodes_to_list(nodeset, 3, self._coords_name)
+            print len(master_node_list)
 
-            node_list = mesh.nodes_to_list(nodeset, 3, self._coords_name)
-            # print node_list
-            n = np.array(node_list)
+            n = np.array(ext_list)
         
             datapointset = fm.findNodesetByFieldDomainType(Field.DOMAIN_TYPE_DATAPOINTS)
             data_list = mesh.data_to_list(datapointset, 3, self._data_coords_name)
             # print data_list
             d = np.array(data_list)
-        
-        # FIXME: This uses all the nodes including internal nodes. It
-        # would be better to use only the external nodes.
-        
-        # move the nodes near to the data
-        T, trans_nodes = ICP.fitDataEPDP(n, d, translate=translate, rotate=rotate, scale=scale)
+
+        # Move the nodes near to the data, note that the nodes being moved
+        # are different to the nodes used to do the fit. 
+        T, trans_nodes = ICP.fitDataEPDP(n, d, translate=translate,
+                                         rotate=rotate, scale=scale,
+                                         nodes_to_move=master_node_list)
         # T, trans_nodes = ICP.fitDataRigidEPDP(n, d)
         # T, trans_nodes = ICP.fitDataRigidScaleEPDP(n, d)
+        print len(trans_nodes)
         
         mesh.update_nodes(nodeset, trans_nodes.tolist(), 'coordinates')
         mesh.update_nodes(nodeset, trans_nodes.tolist(), 'reference_coordinates')
