@@ -1095,32 +1095,32 @@ class Fitter(object):
             # self._projected_coordinates = fm.createFieldEmbedded(self._coordinates, self._stored_location)
             # self._error_vector = fm.createFieldSubtract(self._projected_coordinates, self._data_coordinates)
             data_nodeset_group = self._gnfData.getNodesetGroup()
-            self._outside_surface_fit_objective = fm.createFieldNodesetSumSquares(self._error_vector, data_nodeset_group)
+            outside_surface_fit_objective = fm.createFieldNodesetSumSquares(self._error_vector, data_nodeset_group)
             if __debug__:
-                print "self._outside_surface_fit_objective", self._outside_surface_fit_objective
+                print "outside_surface_fit_objective", outside_surface_fit_objective
             
-            # Diagnostics: print out data point ids
-            if __debug__: 
-                print "Data point ids"
-                dp_iter = data_nodeset_group.createNodeiterator()
-                node = dp_iter.next()
-                while node.isValid():
-                    node_id = node.getIdentifier()
-                    print node_id,
-                    node = dp_iter.next()
-                print
-            
-                print "RMS error"
-                # Diagnostics: compute RMS error
-                field = self._outside_surface_fit_objective
-                cache = fm.createFieldcache()
-                dp_iter = data_nodeset_group.createNodeiterator()
-                dp = dp_iter.next()
-                while dp.isValid():
-                    cache.setNode(dp)
-                    result, outValues = field.evaluateReal(cache, 3)
-                    print result, np.sum(outValues)
-                    dp = dp_iter.next()
+#             # Diagnostics: print out data point ids
+#             if __debug__: 
+#                 print "Data point ids"
+#                 dp_iter = data_nodeset_group.createNodeiterator()
+#                 node = dp_iter.next()
+#                 while node.isValid():
+#                     node_id = node.getIdentifier()
+#                     print node_id,
+#                     node = dp_iter.next()
+#                 print
+#             
+#                 print "RMS error"
+#                 # Diagnostics: compute RMS error
+#                 field = self._outside_surface_fit_objective
+#                 cache = fm.createFieldcache()
+#                 dp_iter = data_nodeset_group.createNodeiterator()
+#                 dp = dp_iter.next()
+#                 while dp.isValid():
+#                     cache.setNode(dp)
+#                     result, outValues = field.evaluateReal(cache, 3)
+#                     print result, np.sum(outValues)
+#                     dp = dp_iter.next()
                 
                 # Diagnostics write out node file.
                 # use createStreamInformation to only write out nodes
@@ -1155,64 +1155,179 @@ class Fitter(object):
 
             self._opt = fm.createOptimisation()
             self._opt.setMethod(Optimisation.METHOD_LEAST_SQUARES_QUASI_NEWTON)
-            self._opt.addObjectiveField(self._outside_surface_fit_objective)
+            self._opt.addObjectiveField(outside_surface_fit_objective)
             # self._opt.addObjectiveField(self._volume_smoothing_objective)
             
             # create penalty objective functions
+            # Get NodesetGroup and MeshGroup for the selected faces
             coords = fm.findFieldByName(self._coords_name)
-            du_dx = [fm.createFieldDerivative(coords, 1),
-                     fm.createFieldDerivative(coords, 2)]
-            sNodes = fm.findNodesetByName('nodes')
-            mesh2d = self._mesh2d
+            ref_coords = fm.findFieldByName(self._ref_coords_name)
+            sNodes = fm.findNodesetByFieldDomainType(Field.DOMAIN_TYPE_NODES)
+            gnfFaces = self._gfFaces.getFieldNodeGroup(sNodes)
+            gsFaces = gnfFaces.getNodesetGroup()
+            mesh2d = fm.findMeshByDimension(2)
+            gmFaces = self._gfFaces.getFieldElementGroup(mesh2d).getMeshGroup()
+            mesh1d = fm.findMeshByDimension(1)
+            gmLines = self._gfFaces.getFieldElementGroup(mesh1d).getMeshGroup()
+            mesh3d = fm.findMeshByDimension(3)
+            gmElems = self._gfFaces.getFieldElementGroup(mesh3d).getMeshGroup()
+            
+            # remove fixed nodes from group
+#             gfRemove = fm.findFieldByName("SelectedNodes").castGroup()
+#             assert(gfRemove.isValid())
+#             gsRemove = gfRemove.getFieldNodeGroup(sNodes).getNodesetGroup()
+#             assert(gsRemove.isValid())
+            
+            print "number of nodes in fit before removal =", gsFaces.getSize()
+            gsRemove = self._gnfRemove.getNodesetGroup()
+            nd_iter = gsRemove.createNodeiterator()
+            node = nd_iter.next()
+            print "nodes to remove"
+            while node.isValid():
+                print node.getIdentifier(),
+                gsFaces.removeNode(node)
+                node = nd_iter.next()
+            print
 
-            # create an arc length penalty objective function
+            print "number of nodes in fit after removal =", gsFaces.getSize()
+           
+            print "number of faces in fit =", gmFaces.getSize()
+ 
+            # create an arc length penalty objective function                 = fm.createFieldMultiply(weight, area)
+
             if alpha > 0:
+                print "alpha =", alpha 
+                du_dx = [fm.createFieldDerivative(coords, 1),
+                         fm.createFieldDerivative(coords, 2)]
                 du_dx_cat = fm.createFieldConcatenate(du_dx)
+                 
+                weight = fm.createFieldConstant(alpha)
+
+#                 sumsq = fm.createFieldNodesetSumSquares(du_dx_cat, gsFaces)
+#                 weighted = fm.createFieldMultiply(const, sumsq)
+#                 self._line_arc_length_objective = fm.createFieldMeshIntegral(weighted, coords, gmFaces)#mesh2d)
+ 
+                integralSquares = fm.createFieldMeshIntegralSquares(du_dx_cat, ref_coords, gmFaces)
+                integralSquares.setNumbersOfPoints([4])
+                line_arc_length_objective = fm.createFieldMultiply(weight, integralSquares)
                 
-                sumsq = fm.createFieldNodesetSumSquares(du_dx_cat, sNodes)
-                const = fm.createFieldConstant(alpha)
-                weighted = fm.createFieldAdd(const, sumsq)
-                self._line_arc_length_objective = fm.createFieldMeshIntegral(weighted, coords, mesh2d)
-                self._opt.addObjectiveField(self._line_arc_length_objective)
+                self._opt.addObjectiveField(line_arc_length_objective)
+                
+
+#                 const = fm.createFieldConstant(1)
+#                 weight = fm.createFieldConstant(alpha)
+#                 
+#                 ref_arc_length = fm.createFieldMeshIntegral(weight, ref_coords, gmLines)
+#                 arc_length = fm.createFieldMeshIntegral(weight, coords, gmLines)
+#                 arc_length.setNumbersOfPoints([4])
+#                 print "arc_length.getNumbersOfPoints()", arc_length.getNumbersOfPoints(0)
+#                 
+#                 line_arc_length_objective = fm.createFieldSubtract(arc_length, ref_arc_length)
+#                 self._opt.addObjectiveField(line_arc_length_objective)
+# 
+#                 ref_area = fm.createFieldMeshIntegral(weight, ref_coords, gmFaces)
+#                 area = fm.createFieldMeshIntegral(weight, coords, gmFaces)
+#                 
+#                 face_area_objective = fm.createFieldSubtract(area, ref_area)
+#                 self._opt.addObjectiveField(face_area_objective)
+                
+                
+
+            if beta > 0:
+                print "beta =", beta 
+#                 ref_coords = fm.findFieldByName('reference_coordinates')                 
+#                 displacement = fm.createFieldSubtract(coords, ref_coords)
+#     
+#                 displacementGradient = fm.createFieldGradient(displacement, ref_coords)
+#                 const = fm.createFieldConstant(beta)
+#                 weightedDisplacementGradient = fm.createFieldMultiply(const, displacementGradient)
+#     
+#                 mesh3d = fm.findMeshByDimension(3)
+#                 smoothingObjective = fm.createFieldMeshIntegralSquares(weightedDisplacementGradient, ref_coords, mesh3d)
+#                 self._opt.addObjectiveField(smoothingObjective)
+
+#                 # try a face area restricting objective function
+#                 ref_coords = fm.findFieldByName('reference_coordinates')                 
+#                 const = fm.createFieldConstant(1)
+#                 fitted_area = fm.createFieldMeshIntegral(const, coords, gmFaces)
+#                 ref_area = fm.createFieldMeshIntegral(const, ref_coords, gmFaces)
+#                 diff = fm.createFieldSubtract(fitted_area, ref_area)
+#                 const = fm.createFieldConstant(beta)
+#                 area_objective = fm.createFieldMultiply(diff, const)
+#                 self._opt.addObjectiveField(area_objective)
 
             # create a curvature penalty function
             # FIXME: need basis_derivative to be put in the API to enable
             # second derivatives
             # The technique below of applying the derivative field twice will not work
-#             if beta > 0:
 #                 du2_dx2 = [fm.createFieldDerivative(du_dx[0], 1), fm.createFieldDerivative(du_dx[1], 2),
 #                            fm.createFieldDerivative(du_dx[0], 2), fm.createFieldDerivative(du_dx[1], 1)]
 #                 du_dx_cat = fm.createFieldConcatenate(du2_dx2)
 #                 sumsq = fm.createFieldNodesetSumSquares(du_dx_cat, sNodes)
 #                 const= fm.createFieldConstant(beta)
-#                 weighted = fm.createFieldAdd(const, sumsq)
+#                 weighted = fm.createFieldMultiply(const, sumsq)
 #                 self._curvature_objective = fm.createFieldMeshIntegral(weighted, coords, mesh2d)
 #                 self._opt.addObjectiveField(self._curvature_objective)
-            
-            coords = fm.findFieldByName('coordinates')
+                
+                # Try a strain penalty
+                # u = x - X
+#                 u = fm.createFieldSubtract(coords, ref_coords)
+#                 # du_dxi1 = field derivative (u, 1)
+#                 du_dxi1 = fm.createFieldDerivative(u, 1)
+#                 du_dxi2 = fm.createFieldDerivative(u, 2)
+#                 FT = fm.createFieldConcatenate([du_dxi1, du_dxi2])
+#                 F = fm.createFieldTranspose(2, FT)
+#                 E = fm.createFieldMatrixMultiply(2, FT, F)
+#                                     
+#                 weight = fm.createFieldConstant(beta)
+#                 weighted = fm.createFieldMultiply(E, weight)
+#                     
+#                 strain_objective = fm.createFieldMeshIntegral(weighted, ref_coords, gmFaces)
+#                 strain_objective.setNumbersOfPoints([4])
+#                 self._opt.addObjectiveField(strain_objective)
+
+                F = fm.createFieldGradient(coords, ref_coords)
+                FT = fm.createFieldTranspose(3, F)
+                  
+                C = fm.createFieldMatrixMultiply(3, FT, F)
+                weight = fm.createFieldConstant(beta*0.5)
+                I = fm.createFieldConstant([1, 0, 0, 0, 1, 0, 0, 0, 1])
+                #half = fm.createFieldConstant(0.5) # included in weight
+                CmI = fm.createFieldSubtract(C, I)
+                E = fm.createFieldMultiply(CmI, weight)
+                    
+                strain_objective = fm.createFieldMeshIntegral(E, ref_coords, gmFaces)
+                strain_objective.setNumbersOfPoints([4])
+                self._opt.addObjectiveField(strain_objective)
+                
+
             self._opt.addIndependentField(coords)
-            self._opt.setAttributeInteger(Optimisation.ATTRIBUTE_MAXIMUM_ITERATIONS, 1)
+            self._opt.setConditionalField(coords, gnfFaces)
+            
+            self._opt.setAttributeInteger(Optimisation.ATTRIBUTE_MAXIMUM_ITERATIONS, 200)
              
+            import time
+            start = time.time()
             print funcname(), "starting optimisation"
             self._opt.optimise()
-            print funcname(), "finished optimisation"
+            print funcname(), "finished optimisation in %s seconds" % (time.time() - start)
     
             # FIXME: generate an event here
             print self._opt.getSolutionReport()
     
-            # Diagnostics: compute RMS error
-            field = self._outside_surface_fit_objective
-            cache = fm.createFieldcache()
-            dp_iter = data_nodeset_group.createNodeiterator()
-            dp = dp_iter.next()
-            while dp.isValid():
-                # cache.setMeshLocation(element, xi)
-                cache.setNode(dp)
-                # field.assignReal(cache, dp)
-                result, outValues = field.evaluateReal(cache, 3)
-                # Check result, use outValues
-                print result, np.sum(outValues)
-                dp = dp_iter.next()
+#             # Diagnostics: compute RMS error
+#             field = self._outside_surface_fit_objective
+#             cache = fm.createFieldcache()
+#             dp_iter = data_nodeset_group.createNodeiterator()
+#             dp = dp_iter.next()
+#             while dp.isValid():
+#                 # cache.setMeshLocation(element, xi)
+#                 cache.setNode(dp)
+#                 # field.assignReal(cache, dp)
+#                 result, outValues = field.evaluateReal(cache, 3)
+#                 # Check result, use outValues
+#                 print result, np.sum(outValues)
+#                 dp = dp_iter.next()
                 
             region.writeFile("after.exregi")
 
