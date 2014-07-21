@@ -497,34 +497,29 @@ class Fitter(object):
 
             self._region_linear.writeFile("hmf.exregi")
     
-    def create_data_undo(self, region):
+    def create_data_undo(self, nodesetGroup):
         # save the original data state
-        nodeset = region.getFieldmodule().findNodesetByFieldDomainType(Field.DOMAIN_TYPE_DATAPOINTS)
-        data_list = mesh.data_to_list(nodeset, 3, self._data_coords_name)
+        data_list = mesh.data_to_list(nodesetGroup, 3, self._data_coords_name)
         
         def restore(data):
-            mesh.update_data(nodeset, data, self._data_coords_name)
+            mesh.update_data(nodesetGroup, data, self._data_coords_name)
         undo = partial(restore, data_list)
         return undo
 
-    # FIXME: should this take a region as a parameter?
-    def _create_nodes_undo(self, region, coordinateFieldName):
+    def _create_nodes_undo(self, nodesetGroup, coordinateFieldName):
         # save the nodes state
-        nodeset = region.getFieldmodule().findNodesetByFieldDomainType(Field.DOMAIN_TYPE_NODES)
-        nodes = mesh.nodes_to_list(nodeset, 3, coordinateFieldName)
+        nodes = mesh.nodes_to_list(nodesetGroup, 3, coordinateFieldName)
         
         def restore(data):
-            mesh.update_nodes(nodeset, nodes, coordinateFieldName)
+            mesh.update_nodes(nodesetGroup, nodes, coordinateFieldName)
         undo = partial(restore, nodes)
         return undo
 
-    def create_fitted_nodes_undo(self, region):
-        return self._create_nodes_undo(region, "coordinates")
+    def create_fitted_nodes_undo(self, nodesetGroup):
+        return self._create_nodes_undo(nodesetGroup, "coordinates")
 
-    def create_reference_nodes_undo(self, region):
-        return self._create_nodes_undo(region, "reference_coordinates")
-        
-
+    def create_reference_nodes_undo(self, nodesetGroup):
+        return self._create_nodes_undo(nodesetGroup, "reference_coordinates")
         
     def data_mirror(self, axis, about_centroid=True):
         """
@@ -532,9 +527,9 @@ class Fitter(object):
         0 - yz, 1 - xz, 2 - xy
         """
         
-        undo = self.create_data_undo(self._region_linear)
         fm = self._region_linear.getFieldmodule()
         datapointset = fm.findNodesetByFieldDomainType(Field.DOMAIN_TYPE_DATAPOINTS)
+        undo = self.create_data_undo(datapointset)
         data_list = mesh.data_to_list(datapointset, 3, self._data_coords_name)
                     
         t = np.identity(3)
