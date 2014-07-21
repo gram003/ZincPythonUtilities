@@ -202,11 +202,11 @@ class Fitter(object):
 
         return restore
     
-    def _createBoundingBoxMesh(self, region, coordinateFieldName):
+    def _createBoundingBoxMesh(self, nodesetGroup, coordinateFieldName):
         # get the list of nodes in the region
-        with get_field_module(region) as fm:
-            nodeset = fm.findNodesetByFieldDomainType(Field.DOMAIN_TYPE_NODES)
-            nodes = mesh.nodes_to_list(nodeset, 3, coordinateFieldName)
+        with get_field_module(nodesetGroup) as fm:
+            #nodeset = fm.findNodesetByFieldDomainType(Field.DOMAIN_TYPE_NODES)
+            nodes = mesh.nodes_to_list(nodesetGroup, 3, coordinateFieldName)
             npnodes = np.array(nodes)
             nmin = np.min(npnodes, axis=0)
             nmax = np.max(npnodes, axis=0)
@@ -237,20 +237,20 @@ class Fitter(object):
                     for x in [0, 1]:
                         host_nodes.append([ n[x][0], n[y][1], n[z][2]])
                         
-            print np.array(host_nodes)
+            #print np.array(host_nodes)
             
-            #mesh.create_nodes(self.context(), region, host_nodes, field_name="host_"+coordinateFieldName, merge=False)
             element = [[i for i in xrange(max_node+1, max_node+9)]]
-            gefHost = fm.createFieldGroup()
-            gefHost.setSubelementHandlingMode(FieldGroup.SUBELEMENT_HANDLING_MODE_FULL)
-            gefHost.setManaged(True) # prevent group from being destroyed when not in use
-            gefHost.setName('host')
+            gfHost = fm.createFieldGroup()
+            gfHost.setSubelementHandlingMode(FieldGroup.SUBELEMENT_HANDLING_MODE_FULL)
+            gfHost.setManaged(True) # prevent group from being destroyed when not in use
+            gfHost.setName('host')
             mesh3d = fm.findMeshByDimension(3)
-            hostElemGroup = gefHost.createFieldElementGroup(mesh3d)
+            hostElemGroup = gfHost.createFieldElementGroup(mesh3d)
             meshGroup = hostElemGroup.getMeshGroup()
+            # newly created element(s) and nodes will have the highest id's
             mesh.linear_mesh(meshGroup, host_nodes, element, coordinate_field_name="host_"+coordinateFieldName)
             
-            return gefHost
+            return gfHost
         
         # TODO: create a mesh group for the host mesh and pass this to linear_mesh instead of the region
         
