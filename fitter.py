@@ -837,6 +837,36 @@ class Fitter(object):
             # self._selectionGroup.getFieldNodeGroup(datapoints).addNode(228)
             # self._selectionGroup.addNode(228)
             
+            # Get selected nodes to fix
+            sNodes = fm.findNodesetByFieldDomainType(Field.DOMAIN_TYPE_NODES)
+            gnfNodes = fm.createFieldNodeGroup(sNodes)
+            gnfNodes.setName("SelectedNodes")
+            gnfNodes.setManaged(True)
+            gsNodes = gnfNodes.getNodesetGroup()
+    
+            nodegroup = self._selectionGroup.getFieldNodeGroup(sNodes)
+            gsNodesSelected = nodegroup.getNodesetGroup()
+            nd_iter = gsNodesSelected.createNodeiterator()
+            print "Adding nodes to node group"
+            count = 0
+            node = nd_iter.next()
+            while node.isValid():
+                node_id = node.getIdentifier()
+                print node_id,
+                gsNodes.addNode(gsNodesSelected.findNodeByIdentifier(node_id))
+                node = nd_iter.next()
+                count += 1
+            print
+            
+            if count == 0:
+                nlist = [int(x) for x in "25 27 45 61 89 102 130 137 402 403 784 785 1030 1031 1394 1395 1772 1773 2404 2405 2586 2587 2720 2721".split()]
+                for nindex in nlist:
+                    gsNodes.addNode(sNodes.findNodeByIdentifier(nindex))
+                    
+            print "number of nodes to remove =", gsNodes.getSize()
+            
+            self._gnfRemove = gnfNodes
+            
             self._selectionGroup.clear()
     
             self._defineStoredFoundLocation(region, gsData, gmFaces)
