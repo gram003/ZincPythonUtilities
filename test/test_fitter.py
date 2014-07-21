@@ -11,6 +11,8 @@ import unittest
 
 from fitter import Fitter
 from opencmiss.zinc.context import Context
+from opencmiss.zinc.field import Field
+
 import tools.mesh as mesh
 import numpy as np
 
@@ -29,32 +31,40 @@ class Test(unittest.TestCase):
         f.register_automatic(translate=True, rotate=False, scale=False)
         f.mirror_data(1) # mirror in y axis
         f.register_automatic(translate=True, rotate=True)
-        
-        
 
-    @unittest.skip("FIXME: currently broken")
+
+    #@unittest.skip("")
     def testRegisterAutomatic(self):
         # for a directory context manager see
         # http://stackoverflow.com/questions/431684/how-do-i-cd-in-python
         f = self.fitter
         f.load_problem("abi_femur.json")
-        initial = mesh.nodes_to_list(self.context)
+        region = f._region_linear
+        fm = region.getFieldmodule()
+        nodeset = fm.findNodesetByFieldDomainType(Field.DOMAIN_TYPE_NODES)
+
+        initial = mesh.nodes_to_list(nodeset)
         f.register_automatic()
-        registered = mesh.nodes_to_list(self.context)
+        registered = mesh.nodes_to_list(nodeset)
         print initial[0][0], registered[0][0]
         a = np.array(initial)
         b = np.array(registered)
         self.assertFalse(np.allclose(a,b), "Initial and registered arrays are equal")
         
 
-    @unittest.skip("FIXME: currently broken")
+    @unittest.skip("")
     def testMirror(self):
         f = self.fitter
         f.load_problem("abi_femur.json")
-        # Get the list of nodes
-        initial = mesh.data_to_list(self.context)
+        
+        region = f._region_linear
+        fm = region.getFieldmodule()
+        nodeset = fm.findNodesetByFieldDomainType(Field.DOMAIN_TYPE_DATAPOINTS)
+
+        # Get the list of nodes        
+        initial = mesh.data_to_list(nodeset)
         f.data_mirror(0) # mirror in x axis
-        mirrored = mesh.data_to_list(self.context)
+        mirrored = mesh.data_to_list(nodeset)
         #print initial[0][0], mirrored[0][0]
         # can't do this because it now mirrors about a plane through the centroid
         #self.assertTrue(initial[0][0] == -mirrored[0][0])
@@ -75,7 +85,7 @@ class Test(unittest.TestCase):
         
         # FIXME: how to know that it worked? It didn't throw an exception?
         
-    #@unittest.skip("")
+    @unittest.skip("")
     def testCreateHostMesh(self):
         f = self.fitter
         f.load_problem("abi_femur.json")
