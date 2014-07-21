@@ -130,7 +130,7 @@ class ZincWidget(QtOpenGL.QGLWidget):
         and_filter.appendOperand(domain)
         return and_filter
 
-    def setSelectModeNode(self):
+    def setSelectModeNodes(self):
         '''
         Set the selection mode to select *only* nodes.
         '''
@@ -150,7 +150,7 @@ class ZincWidget(QtOpenGL.QGLWidget):
         scene_filter = self._createSceneFilterForDomainType(Field.DOMAIN_TYPE_DATAPOINTS)
         self._scene_picker.setScenefilter(scene_filter)
 
-    def setSelectModeElement(self):
+    def setSelectModeElements(self):
         '''
         Set the selection mode to select *only* elements.
         '''
@@ -160,7 +160,7 @@ class ZincWidget(QtOpenGL.QGLWidget):
         scene_filter = self._createSceneFilterForDomainType(Field.DOMAIN_TYPE_MESH3D)
         self._scene_picker.setScenefilter(scene_filter)
 
-    def setSelectModeFace(self):
+    def setSelectModeFaces(self):
         '''
         Set the selection mode to select *only* faces (2D mesh objects).
         '''
