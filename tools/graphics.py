@@ -166,6 +166,10 @@ def createLineGraphics(region, **kwargs):
         if 'lines_name' in kwargs:
             lines.setName(kwargs['lines_name'])
         lines.setMaterial(mat)
+        
+        att = lines.getGraphicslineattributes()
+        att.setBaseSize([1,1,1])
+
         subGroupField = kwargs.get("sub_group_field", None)
         if subGroupField:
             lines.setSubgroupField(subGroupField)
