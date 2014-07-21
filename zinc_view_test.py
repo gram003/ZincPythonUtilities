@@ -16,6 +16,9 @@ import enaml_zinc_widget
 
 import enaml
 
+import opencmiss.zinc
+print "Using Zinc", opencmiss.zinc.__version__
+
 with enaml.imports():
     from zinc_view import Main
 
@@ -29,6 +32,7 @@ controller = MainController()
 app = QtApplication()
 
 view = Main(title="Zinc Fitting", controller=controller)
+controller.set_view(view)
 
 ezw = view.find("ZincWidget")
 zw = ezw.get_widget()
@@ -44,7 +48,7 @@ zw = ezw.get_widget()
 context = ezw.get_widget().getContext()
 
 f = Fitter(context)
-controller.setFitter(f)
-controller.setZincWidget(zw)
+controller.set_fitter(f)
+controller.set_zinc_widget(zw)
 
 app.start()

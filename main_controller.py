@@ -16,14 +16,18 @@ class MainController(object):
         
     # The model can't be passed to the constructor because of the
     # initialisation order so this method is provided instead.    
-    def setFitter(self, fitter):
+    def set_fitter(self, fitter):
         self._model = fitter
-        fitter.observable.observe('region', self._onCurrentRegionChanged)
+        fitter.observable.observe('region', self._on_model_changed)
+        fitter.observable.observe('selectMode', self._on_model_changed)
+
+    def set_view(self, view):
+        self._view = view
          
-    def setZincWidget(self, zw):
+    def set_zinc_widget(self, zw):
         self._zw = zw
         
-        self._zw.graphicsPicked.connect(self._onGraphicsSelected)
+        self._zw.graphicsPicked.connect(self._on_graphics_selected)
 
         if __debug__:
             import os
@@ -33,20 +37,27 @@ class MainController(object):
 #             self.open_file("test_2d_fit.json")
             os.chdir("..")
 
-#             # register the mesh to the mirrored the data 
+            # for testing register the mesh to the mirrored the data 
             f = self._model
-#             f.register_automatic(translate=True, rotate=False, scale=False)
+            f.register_automatic(translate=True, rotate=False, scale=False)
             f.data_mirror(1) # mirror in y axis
-#             f.register_automatic(translate=True, rotate=True)
-#             
-#             self._zw.viewAll()
+            f.register_automatic(translate=True, rotate=True)
+            self._zw.viewAll()
             
-#             # convert to cubic
-#             self.convert_to_cubic()
-#             # hide initial mesh
-#             self.view_data(False)
-#             self.view_reference(False)
-#             self.view_fitted(False)
+            # convert to cubic
+#            self.convert_to_cubic()
+            # hide initial mesh via UI
+            
+            #self._view.mb.data_view.checked = False
+            for name in [
+                         #'view_data',
+                         #'view_reference', 'view_fitted',
+                         'cubic_data', 'cubic_reference', 'cubic_reference']:
+                vobj = self._view.find(name)
+                vobj.checked = False
+                vobj.triggered()
+            
+            
 #             self.view_data_cubic(True)
 #             self.view_reference_cubic(False)
 #             self.view_fitted_cubic(True)
@@ -63,9 +74,13 @@ class MainController(object):
 #             self.view_data_cubic(True)
 #             self.view_reference_cubic(False)
 #             self.view_fitted_cubic(True)
+    
+    def set_status_message(self, msg):
+        w = self._view.find("status")
+        w.text = msg
 
-    def _onGraphicsSelected(self, item, fieldDomainType):
-        print funcname(), "domainType", fieldDomainType, "item id", item.getIdentifier()
+    def _on_graphics_selected(self, item, fieldDomainType):
+        self._model.graphics_selected(item, fieldDomainType)
                    
     def on_closed(self):
         print funcname()
@@ -142,20 +157,16 @@ class MainController(object):
         self._model.storeSelectedFaces()
 
     def select_faces(self):
-        self._zw.setSelectModeFace()
+        self._zw.setSelectModeFaces()
         self._zw.setSelectionModeAdditive(True)
 
     def select_nodes(self, additive=False):
-        self._zw.setSelectModeData()
-        self._zw.setSelectionModeAdditive(additive)
-
-    def select_nodes(self, additive=False):
-        self._zw.setSelectModeNode()
+        self._zw.setSelectModeNodes()
         self._zw.setSelectionModeAdditive(additive)
         
     def select_manual_reg(self):
         print funcname()
-        self._zw.setSelectModeNode()
+        self._zw.setSelectModeNodes()
         self._zw.setSelectionModeAdditive(False)
         self._model.hostmesh_register_setup()
 
@@ -177,8 +188,7 @@ class MainController(object):
         undo = self._model.register_automatic(translate, rotate, scale)
         self._undoStack.append(undo)
 
-        
-    
+
     #
     # Fitting
     #
@@ -201,9 +211,29 @@ class MainController(object):
     # Signals
     #
     
-    def _onCurrentRegionChanged(self, change):
-        assert(change['name'] == 'region')
-        region = change['value']
-        if __debug__: print funcname(), region.getName()
-        self._zw.setCurrentRegion(region)
+    def _on_model_changed(self, change):
+        print change['name'], change['value'] 
+        if change['name'] == 'region':
+            region = change['value']
+            if __debug__: print funcname(), region.getName()
+            self._zw.setCurrentRegion(region)
+#         elif change['name'] == 'statusMessage':
+#             self.set_status_message(change['value'])
+        elif change['name'] == 'selectMode':
+            mode = change['value']
+            zw = self._zw
+            m = self._model
+            if mode == m.SelectModeData:
+                zw.setSelectModeData()
+                self.set_status_message("Select a data point")
+            elif mode == m.SelectModeNodes:
+                zw.setSelectModeNodes()
+                self.set_status_message("Select a node")
+            elif mode == m.SelectModeFaces:
+                zw.setSelectModeFaces()
+                self.set_status_message("Select a face")                
+            elif mode == None:
+                zw.setSelectModeNone()
+                self.set_status_message("")
+            
         
