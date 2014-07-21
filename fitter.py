@@ -738,6 +738,65 @@ class Fitter(object):
 
         self._cubic_graphics_data = self._create_graphics_data(region_cubic, self._data_coords_name)
 
+    def storeSelectedFaces(self):
+        self._selectedFaces = []
+        region = self._region_cubic
+        with get_field_module(region) as fm:
+            mesh2d = fm.findMeshByDimension(2)
+
+#             # Copy the selected faces to the "FacesGroup" group
+            # Get the selection field        
+            selectionGroup = fm.findFieldByName("SelectionGroup").castGroup()
+            gefSelection = selectionGroup.getFieldElementGroup(mesh2d)
+            meshgroup = gefSelection.getMeshGroup()
+#             print "meshgroup.getMasterMesh().getName()", meshgroup.getMasterMesh().getName()
+#                         
+#             facesGroupName = "FacesGroup"
+#             gFaces = fm.findFieldByName(facesGroupName).castGroup()            
+#             if not gFaces.isValid():
+#                 gFaces = fm.createFieldGroup()
+#                 gFaces.setName(facesGroupName)
+#                 gFaces.setSubelementHandlingMode(FieldGroup.SUBELEMENT_HANDLING_MODE_FULL)
+#                 gFaces.setManaged(True) # prevent group from being destroyed when not in use
+# 
+#             gefFaces = gFaces.getFieldElementGroup(mesh2d)
+#             gmFaces = gefFaces.getMeshGroup()
+#             gmFaces.removeAllElements()
+#             print "gmFaces.getMasterMesh().getName()", gmFaces.getMasterMesh().getName()
+
+            
+            el_iter = meshgroup.createElementiterator()
+            if __debug__: print "Adding selected elements to face group" 
+            count = 0
+            element = el_iter.next()
+            while element.isValid():
+                elem_id = element.getIdentifier()
+                self._selectedFaces.append(elem_id)
+                if __debug__: print elem_id,
+                #print mesh2d.findElementByIdentifier(elem_id)
+                #print element.getMesh().getFieldmodule().getRegion().getName()
+                #res = gmFaces.addElement(element)
+                #print res
+                #assert(zinc.status.OK == res)
+                
+                element = el_iter.next()
+                count += 1
+            if __debug__: print
+
+#             print "Num faces in group=", gmFaces.getSize() 
+# 
+#             el_iter = gmFaces.createElementiterator()
+#             if __debug__: print "Elements in face group..." 
+#             count = 0
+#             element = el_iter.next()
+#             while element.isValid():
+#                 elem_id = element.getIdentifier()
+#                 if __debug__: print elem_id,
+#                 element = el_iter.next()
+#                 count += 1
+#             if __debug__: print
+        
+
     def project(self):
         # project selected data points onto selected faces
 #         self._create2DElementGroup(root_region)
@@ -748,22 +807,34 @@ class Fitter(object):
 #         self._createGraphics(root_region)
 
         # Create a face group
-        region = self._region_cubic
+        region = self._region_cubic # need to convert to cubic first
         with get_field_module(region) as fm:
             mesh2d = fm.findMeshByDimension(2)
             self._mesh2d = mesh2d
+            sNodes = fm.findNodesetByFieldDomainType(Field.DOMAIN_TYPE_NODES)
             # m2 = mesh2d # should use m2 as the Hungarian prefix
-            try:
-                self._gefFaces
-            except AttributeError:
-                self._gefFaces = None
-            if self._gefFaces is None:
-                self._gefFaces = fm.createFieldElementGroup(mesh2d)
+#             try:
+#                 self._gfFaces
+#             except AttributeError:
+            # Find or create a group to contain the selected faces
+            faceGroupName = 'FaceGroup'
+            self._gfFaces = fm.findFieldByName(faceGroupName).castGroup()
+            if self._gfFaces.isValid():
+                self._gfFaces.clear()
+            else:
+                self._gfFaces = fm.createFieldGroup()
+                self._gfFaces.setManaged(True)
+                self._gfFaces.setSubelementHandlingMode(FieldGroup.SUBELEMENT_HANDLING_MODE_FULL)
+                self._gfFaces.setManaged(True) # prevent group from being destroyed when not in use
+                self._gfFaces.setName(faceGroupName)
+
+            self._gefFaces = self._gfFaces.createFieldElementGroup(mesh2d)
+
             if __debug__: print "self._gefFaces", self._gefFaces
-            # Get a mesh group to contain the selected faces
+            
             gmFaces = self._gefFaces.getMeshGroup()
-            if __debug__: print "gmFaces", gmFaces 
-            gmFaces.removeAllElements()
+            #if __debug__: print "gmFaces", gmFaces 
+            #gmFaces.removeAllElements()
     
             # outsideFaceIds = [3, 8, 13, 18, 23, 27]
             if __debug__: print "self._mesh2d", self._mesh2d
@@ -774,18 +845,24 @@ class Fitter(object):
             # copy the selected faces to the _outsideMesh group
             gefSelection = self._selectionGroup.getFieldElementGroup(mesh2d)
             meshgroup = gefSelection.getMeshGroup()
-            el_iter = meshgroup.createElementiterator()
-            if __debug__: print "Adding selected elements to face group" 
             count = 0
-            element = el_iter.next()
-            while element.isValid():
-                elem_id = element.getIdentifier()
-                if __debug__: print elem_id,
-                gmFaces.addElement(mesh2d.findElementByIdentifier(elem_id))
+            if meshgroup.getSize() == 0:
+                if __debug__: print "Adding previously selected elements to face group" 
+                for elem_id in self._selectedFaces:
+                    if __debug__: print elem_id,
+                    gmFaces.addElement(mesh2d.findElementByIdentifier(elem_id))
+            else:
+                el_iter = meshgroup.createElementiterator()
+                if __debug__: print "Adding currently selected elements to face group" 
                 element = el_iter.next()
-                count += 1
-            if __debug__: print
-
+                while element.isValid():
+                    elem_id = element.getIdentifier()
+                    if __debug__: print elem_id,
+                    gmFaces.addElement(mesh2d.findElementByIdentifier(elem_id))
+                    element = el_iter.next()
+                    count += 1
+                if __debug__: print
+            
             # for developing just use a few faces
             if count == 0:
                 #elist = [int(x) for x in "34 77 158".split()] # linear
@@ -896,7 +973,7 @@ class Fitter(object):
         with get_field_module(region) as fm:
             
             mesh2d = fm.findMeshByDimension(2)
-                    
+
             data_coordinates = fm.findFieldByName(self._data_coords_name)
             coordinates = fm.findFieldByName('coordinates')
             
