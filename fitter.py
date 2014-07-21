@@ -1418,21 +1418,31 @@ class Fitter(object):
         dimension = mesh._find_mesh_dimension(record["basis_order"], elems)
         
         self._elements_linear = elems
-                
-        mymesh = fm.findMeshByDimension(dimension)
-        mesh.linear_mesh(mymesh, nodes, elems,
-                         coordinate_field_name=self._coords_name)
+
+#         mymesh = fm.findMeshByDimension(dimension)
+#         mesh.linear_mesh(mymesh, nodes, elems,
+#                          coordinate_field_name=self._coords_name)
+
+        # Load the mesh into a group named 'model'
+        gfModel = fm.createFieldGroup()
+        gfModel.setSubelementHandlingMode(FieldGroup.SUBELEMENT_HANDLING_MODE_FULL)
+        gfModel.setManaged(True) # prevent group from being destroyed when not in use
+        gfModel.setName('model')
+        meshModel = fm.findMeshByDimension(dimension)
+        modelElemGroup = gfModel.createFieldElementGroup(meshModel)
+        meshGroup = modelElemGroup.getMeshGroup()
+        mesh.linear_mesh(meshGroup, nodes, elems, coordinate_field_name=self._coords_name)
+
         
         # Load the mesh again, this time merging with the previous mesh
         # and renaming the coordinate field to reference_coordinates.
         # This adds another set of coordinates at each node.
-        mymesh = fm.findMeshByDimension(dimension)
-        mesh.linear_mesh(mymesh, nodes, elems,
+        mesh.linear_mesh(meshGroup, nodes, elems,
                          coordinate_field_name=self._ref_coords_name, merge=True)
             
-        self._initial_graphics = self._create_graphics_mesh(region, self._coords_name, colour='white')
+        self._initial_graphics = self._create_graphics_mesh(region, self._coords_name, colour='white', sub_group_field=gfModel)
 
-        self._initial_graphics_ref = self._create_graphics_mesh(region, self._ref_coords_name, colour="green")
+        self._initial_graphics_ref = self._create_graphics_mesh(region, self._ref_coords_name, colour="green", sub_group_field=gfModel)
         
         self.meshLoaded()
         
