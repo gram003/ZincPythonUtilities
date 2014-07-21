@@ -178,9 +178,11 @@ enamldef RegistrationManualDockPane(DockPane):
                 checkable = True
                 clicked ::
                     controller.select_manual_reg()
-                    statusText.text = "Select a node"
-            Label: statusText:
-                visible = False
+#                    statusText.text = "Select a node"
+#             Label: statusText:
+#                 # the main status bar observes this
+#                 visible = False
+#                 name = 'status'
             PushButton: manual:
                 text = 'Register'
                 clicked :: controller.register_manual()
@@ -314,7 +316,8 @@ enamldef MyStatusBar(StatusBar):
     StatusItem:
         Label: statusLabel:
             text = "Status"
-
+            name = 'status'
+            
 enamldef Main(MainWindow): main:
     title = 'Zinc Widget'
     initial_size = (800,600)
@@ -322,7 +325,8 @@ enamldef Main(MainWindow): main:
     MyMenuBar:
         pass
     MyStatusBar: sb:
-        statusLabel.text << reg_man_pane.statusText.text
+        #statusLabel.text << reg_man_pane.statusText.text
+        pass
     MyToolBar: tb:
         pass
 #     Conditional:
