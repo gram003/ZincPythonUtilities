@@ -732,7 +732,7 @@ class Fitter(object):
                 datapointset_cubic = fmc.findNodesetByFieldDomainType(Field.DOMAIN_TYPE_DATAPOINTS)
                 mesh.define_datapoints(datapointset_cubic, data)
         
-        self._cubic_graphics = self._create_graphics_mesh(region_cubic, self._coords_name, colour='bone')
+        self._cubic_graphics = self._create_graphics_mesh(region_cubic, self._coords_name, colour='bone', exterior=True)
         
         #self._cubic_graphics_ref = self._create_graphics_mesh(region_cubic, self._ref_coords_name, colour='blue')
 
