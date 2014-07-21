@@ -1,6 +1,6 @@
 {
   "nodes": "abi_femur_head.node.txt", 
-  "data": "abi_femur_head_500.ascii", 
+  "data": "abi_femur_head_2k.ascii", 
   "elems": "abi_femur_head.elem.txt",
   "basis_order":1
   

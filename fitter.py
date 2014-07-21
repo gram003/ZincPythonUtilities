@@ -789,14 +789,16 @@ class Fitter(object):
             # for developing just use a few faces
             if count == 0:
                 #elist = [int(x) for x in "34 77 158".split()] # linear
-                #elist = [int(x) for x in "29 34 188 192".split()] # cubic
-                elist = [int(x) for x in "1".split()] # cubic
+                #elist = [int(x) for x in "29 34 188 192".split()] # cubic proximal femur
+                elist = [int(x) for x in "34 77 106 148 158 160 192 223 244 265 286 300".split()] # proximal hemisphere
+                #elist = [158]
+                #elist = [int(x) for x in "1".split()] # 2d cubic example
                 for eindex in elist:
                     gmFaces.addElement(mesh2d.findElementByIdentifier(eindex))
             
             # get selected data points
             # Create a data point group to contain the selected datapoints
-            sData = fm.findNodesetByName('datapoints')
+            sData = fm.findNodesetByFieldDomainType(Field.DOMAIN_TYPE_DATAPOINTS)
             print "sData", sData
             # The FieldNodeGroup is the "main" object containing the data,
             # but the NodesetGroup has the add/remove api.
@@ -827,7 +829,18 @@ class Fitter(object):
             if count == 0:
                 # for developing use data points directly from the main datapoints set
                 #dlist = [int(x) for x in "24 26 113 132 157 165 200 228 229 254 269 281 304 312 349 355 374 389 406 427 454 469 490 520 533 552".split()]
-                dlist = [x for x in xrange(1,37)]
+                dlist = [int(x) for x in "19 22 24 26 34 40 55 56 57 61 72 75" # proximal hemisphere
+                    " 84 88 94 104 110 112 113 115 132 133 135 146 156 157 159"
+                    " 165 172 183 184 186 187 188 191 193 200 207 210 211 214"
+                    " 220 228 229 244 254 256 262 268 269 273 275 278 279 280"
+                    " 281 282 289 293 300 304 312 313 314 319 338 347 349 351"
+                    " 355 361 364 367 368 374 389 390 393 394 395 405 406 409"
+                    " 418 423 426 427 438 454 462 464 465 469 478 489 490 498"
+                    " 504 506 510 512 520 533 534 547 552 555".split()]
+                
+                #dlist = [int(x) for x in "26 113 228 281 312 349 355 367 406 469 520 533 552".split()]
+
+                #dlist = [x for x in xrange(1,37)] # 2d cubic problem
                 for dindex in dlist:
                     gsData.addNode(sData.findNodeByIdentifier(dindex))
             
