@@ -1,5 +1,25 @@
 
 from tools.diagnostics import funcname
+from functools import partial
+
+class Action(object):
+    """
+    class defining a UI action with undo and redo
+    """
+    def __init__(self, doFunc):
+        assert(callable(doFunc))
+        self._do = doFunc
+        # do the action
+        self.do()
+    
+    def do(self):
+        # overwrites the undo slot with the result of the do function
+        undo = self._do()
+        if callable(undo):
+            self.undo = undo
+    
+    def undo(self):
+        raise NotImplementedError("Can't undo")
 
 class MainController(object):
     '''
@@ -12,6 +32,7 @@ class MainController(object):
         '''
         #self._model = model
         self._undoStack = list()
+        self._redoStack = list()
         
         
     # The model can't be passed to the constructor because of the
@@ -39,9 +60,10 @@ class MainController(object):
 
             # for testing register the mesh to the mirrored the data 
             f = self._model
-            f.register_automatic(translate=True, rotate=False, scale=False)
-            f.data_mirror(1) # mirror in y axis
-            f.register_automatic(translate=True, rotate=True)
+            
+            self.data_mirror('y') # mirror in y axis
+            #self.register_automatic(translate=True, rotate=False, scale=False)
+            # self.register_automatic(translate=True, rotate=True)
             self._zw.viewAll()
             
             # convert to cubic
@@ -84,6 +106,7 @@ class MainController(object):
                    
     def on_closed(self):
         print funcname()
+
     #
     # File Menu
     #
@@ -105,18 +128,32 @@ class MainController(object):
     def save_file(self, path):
         print funcname(), path
         self._model.save_problem(path)
-        
+
     #
     # Edit menu
     #
 
+    def _create_action(self, doFunc):
+        a = Action(doFunc)
+        self._undoStack.append(a)
+        del self._redoStack[:]
+
     def undo(self):
         try:
-            command = self._undoStack.pop()
+            #command = self._undoStack.pop()
+            action = self._undoStack.pop()
+            action.undo()
+            self._redoStack.append(action)
         except IndexError:
             return
-
-        command()
+        
+    def redo(self):
+        try:
+            action = self._redoStack.pop()
+            action.do()
+            self._undoStack.append(action)
+        except IndexError:
+            return
         
     #
     # View menu
@@ -177,16 +214,16 @@ class MainController(object):
     #
     # Registration
     #
-
-    def mirror(self, axis):
+    
+    def data_mirror(self, axis):
         convert = {'x': 0, 'y': 1, 'z': 2}
-
-        undo = self._model.data_mirror(convert[axis], about_centroid=True)
-        self._undoStack.append(undo)
-
+        
+        #undo = self._model.data_mirror(convert[axis], about_centroid=True)
+        self._create_action(partial(self._model.data_mirror, convert[axis], about_centroid=True))
+        
     def register_automatic(self, translate, rotate, scale):
-        undo = self._model.register_automatic(translate, rotate, scale)
-        self._undoStack.append(undo)
+        #undo = self._model.register_automatic(translate, rotate, scale)
+        self._create_action(partial(self._model.register_automatic, translate, rotate, scale))
 
 
     #

@@ -65,7 +65,7 @@ enamldef MyMenuBar(MenuBar): mb:
             triggered :: controller.undo()
         Action:
             text = 'Redo\tCtrl+R'
-            triggered :: print 'Redo triggered'
+            triggered :: controller.redo()
         Menu:
             title = 'Undo Selection'
             Action:
@@ -134,7 +134,7 @@ enamldef MyMenuBar(MenuBar): mb:
 enamldef RegistrationManualDockPane(DockPane):
     attr controller = parent.controller
     title = "Registration"
-    alias statusText: statusText
+    # alias statusText: statusText
     Container:
         padding = 0
 #         constraints = [
@@ -151,7 +151,7 @@ enamldef RegistrationManualDockPane(DockPane):
             title = 'Data'
             PushButton: mirror:
                 text = 'Mirror'
-                clicked :: controller.mirror(axis.selected)
+                clicked :: controller.data_mirror(axis.selected)
                 hug_width = 'required'
                 tool_tip = "Mirror data about its centroid"
             ObjectCombo: axis:
