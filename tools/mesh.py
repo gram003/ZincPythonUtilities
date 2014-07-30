@@ -42,8 +42,6 @@ def _coordinate_field(nodeset,
     # finite element coordinate field.
     with get_field_module(nodeset) as field_module:
         
-        # Find a special node set named 'nodes' or 'datapoints'
-        #nodeset = field_module.findNodesetByName(nodeset_type)
         node_template = nodeset.createNodetemplate()
 
         for name in coordinate_fields:
@@ -332,7 +330,7 @@ def linear_to_cubic(mesh_cubic, nodes, elements, tol=1e-4, **kwargs):
         finite_element_fields = []
 
         # Create a template for defining new nodes
-        nodeset = fm.findNodesetByName('nodes')
+        nodeset = fm.findNodesetByFieldDomainType(Field.DOMAIN_TYPE_NODES)
         node_template = nodeset.createNodetemplate()
         for field_name in coordinate_fields:
             finite_element_field = fm.findFieldByName(field_name)
@@ -399,7 +397,6 @@ def _nodes_to_list(nodeset, numValues=3, coordFieldName='coordinates'):
     Extract nodes into a Python list
     """
     fm = nodeset.getFieldmodule()
-    #sNodes = fm.findNodesetByName(nodesetName)
     field = fm.findFieldByName(coordFieldName)
 
     # extract the list of nodes 
@@ -409,7 +406,6 @@ def _nodes_to_list(nodeset, numValues=3, coordFieldName='coordinates'):
     count = 0
     node = node_iter.next()
     while node.isValid():
-        #node_id = node.getIdentifier()
         cache.setNode(node)
         result, outValues = field.evaluateReal(cache, numValues)
         node_list.append(outValues)
@@ -425,8 +421,6 @@ def _update_nodes(nodeset, coordinate_set, nodesetName, coordFieldName='coordina
     
     # Update nodes with new coordinates 
     with get_field_module(nodeset) as fm:
-    
-#         sNodes = fm.findNodesetByName(nodesetName)
         field = fm.findFieldByName(coordFieldName)
         
         num_nodes = nodeset.getSize()
