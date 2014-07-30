@@ -688,33 +688,49 @@ class Fitter(object):
             self._opt.addIndependentField(host_coords)
             #self._opt.setAttributeInteger(Optimisation.ATTRIBUTE_MAXIMUM_ITERATIONS, 1)
              
-            du_dx = [fm.createFieldDerivative(host_coords, 1),
-                     fm.createFieldDerivative(host_coords, 2),
-                     fm.createFieldDerivative(host_coords, 3)]
-            
-            # Get the host nodeset group
-            gfHost = fm.findFieldByName('host').castGroup()
-            assert(gfHost.isValid())
-            sHost = fm.findNodesetByFieldDomainType(Field.DOMAIN_TYPE_NODES)
-            gsHost = gfHost.getFieldNodeGroup(sHost).getNodesetGroup()
-            assert(gsHost.isValid())
-            
-            # get the host mesh group
-            meshHost = fm.findMeshByDimension(3)
-            gmHost = gfHost.getFieldElementGroup(meshHost).getMeshGroup()
-            assert(gmHost.isValid())
-
-            # create an arc length penalty objective function
-            # doesn't work
-            if alpha > 0:
-                du_dx_cat = fm.createFieldConcatenate(du_dx)
+#             du_dx = [fm.createFieldDerivative(host_coords, 1),
+#                      fm.createFieldDerivative(host_coords, 2),
+#                      fm.createFieldDerivative(host_coords, 3)]
                 
-                sumsq = fm.createFieldNodesetSumSquares(du_dx_cat, gsHost)
-                const = fm.createFieldConstant(alpha)
-                weighted = fm.createFieldAdd(const, sumsq)
-                # need to integrate w.r.t reference coords here
-                line_arc_length_objective = fm.createFieldMeshIntegral(weighted, host_coords, gmHost)
-                self._opt.addObjectiveField(line_arc_length_objective)
+            gsHost, gmHost = self._getHostGroups(fm)
+            assert(gmHost.getSize() == 1)
+    
+            # volume penalty
+            if alpha > 0:                  
+                ref_host_coords = fm.findFieldByName('ref_host_coordinates')
+                displacement = fm.createFieldSubtract(host_coords, ref_host_coords)
+                displacement_gradient = fm.createFieldGradient(displacement, ref_host_coords)
+                weight = fm.createFieldConstant(alpha)
+                scaled_displacement_gradient = fm.createFieldMultiply(weight, displacement_gradient)
+                                  
+                volume_smoothing_objective = fm.createFieldMeshIntegralSquares(
+                                                scaled_displacement_gradient,
+                                                ref_host_coords, gmHost)
+                volume_smoothing_objective.setNumbersOfPoints([4])
+                
+                self._opt.addObjectiveField(volume_smoothing_objective)
+            
+
+#             # create an arc length penalty objective function
+#             # doesn't work
+#             if alpha > 0:
+#                 du_dx_cat = fm.createFieldConcatenate(du_dx)
+#                 
+#                 weight = fm.createFieldConstant(alpha)
+#                 
+# #                 sumsq = fm.createFieldNodesetSumSquares(du_dx_cat, gsHost)
+# #                 weighted = fm.createFieldAdd(weight, sumsq)
+# #                 # need to integrate w.r.t reference coords here
+# #                 ref_host_coords = fm.findFieldByName('ref_host_coordinates')
+# #                 line_arc_length_objective = fm.createFieldMeshIntegral(weighted, ref_host_coords, gmHost)
+# 
+#                 ref_host_coords = fm.findFieldByName('ref_host_coordinates')
+#                 host_coords = fm.findFieldByName('host_coordinates')
+#                 integralSquares = fm.createFieldMeshIntegralSquares(du_dx_cat, host_coords, gmHost)
+#                 integralSquares.setNumbersOfPoints([4])
+#                 line_arc_length_objective = fm.createFieldMultiply(weight, integralSquares)
+# 
+#                 self._opt.addObjectiveField(line_arc_length_objective)
             
             self._opt.optimise()
     
