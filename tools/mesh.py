@@ -14,7 +14,8 @@ from tools.diagnostics import funcname
 def _coordinate_field(nodeset,
                       coordinate_set,
                       coordinate_field_name=['coordinates'],
-                      merge=False):
+                      merge=False,
+                      start_node_id=False):
     '''
     Create a coordinate field given a coordinate list.
     param: region the region
@@ -57,7 +58,7 @@ def _coordinate_field(nodeset,
         
         field_cache = field_module.createFieldcache()
         
-        node_id = 1
+        node_id = start_node_id
         # Create nodes and add to field cache
         for coords in coordinate_set:
             if not merge:
@@ -118,6 +119,8 @@ def _lagrange_mesh(mymesh, basis_order, node_coordinate_set, element_set, **kwar
     # Parse kwargs    
     coordinate_field_name = kwargs.get('coordinate_field_name', 'coordinates')
     merge = kwargs.get('merge', False)
+    start_node_id = kwargs.get('start_node_id', 1)
+    start_element_id = kwargs.get('start_element_id', 1)
 
     if isinstance(coordinate_field_name, list):
         coordinate_fields = coordinate_field_name
@@ -141,7 +144,7 @@ def _lagrange_mesh(mymesh, basis_order, node_coordinate_set, element_set, **kwar
             if not nodeset.isValid():
                 raise RuntimeError("The node list was empty and could not find a nodeset for the given mesh")
         else:
-            _coordinate_field(nodeset, node_coordinate_set, coordinate_fields, merge)
+            _coordinate_field(nodeset, node_coordinate_set, coordinate_fields, merge, start_node_id)
     
         # Create and configure an element template for the appropriate mesh type.
         element_node_count = len(element_set[0])
@@ -175,7 +178,7 @@ def _lagrange_mesh(mymesh, basis_order, node_coordinate_set, element_set, **kwar
 
         # create the elements
         new_elems = []
-        element_id = 1 # FIXME: allow user to specify the starting element
+        element_id = start_element_id
         for node_indices in element_set:
             #print funcname(), "element_id", element_id
             def _populateTemplate():
