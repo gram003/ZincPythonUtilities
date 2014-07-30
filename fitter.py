@@ -15,9 +15,10 @@ import tools.mesh as mesh
 import tools.graphics as graphics
 from tools.utilities import get_scene, get_field_module, get_tessellation_module
 
-# for diagnostics
+from atom.api import Atom, Typed, Int, Bool
 import numpy as np
 
+# for diagnostics
 def funcname():
     return sys._getframe(1).f_code.co_name
 
@@ -33,30 +34,29 @@ def funcname():
 # f field
 # 1,2,3 dimension, e.g. m2 = 2d mesh
 
-from atom.api import Atom, Typed, Int
 
 class Fitter(object):
     # selection modes - use Field.DOMAIN_TYPE_* for this
     #Faces = 1
     #Nodes = 2
     #Data = 4
-    FIT_HOST = 1
-    FIT_SURFACE = 2
+    FIT_NONE = 0
+    FIT_REGISTER_AUTO = 1
+    FIT_HOST = 2
+    FIT_SURFACE = 3
     
+    # Selection mode for picking in the scene. These can potentially be combined.
     SelectModeNone = 0
     SelectModeNodes = 1
     SelectModeData = 2
     SelectModeFaces = 4
     
     class Observable(Atom):
+        # if a field is added here, be sure to add an observer in main_controller.set_fitter
         region = Typed(Region)
-        #statusMessage = Str()
         selectMode = Int()
+        hmfProblemDefined = Bool()
     
-#         def _observe_region(self, change):
-#             print change['name']
-#             print change['value']
-
     observable = Observable()
     
     def __init__(self, context):
@@ -65,7 +65,9 @@ class Fitter(object):
         self._context = context
         self._root_region = context.getDefaultRegion()
         self.observable.region = self._root_region
-        #self.observable.statusMessage = ""
+
+        self.observable.selectMode = self.SelectModeNone
+        self.observable.hmfProblemDefined = False
 
         self._projected_coordinates = None
         self._error_vector = None
@@ -115,6 +117,13 @@ class Fitter(object):
 
     def getSelectMode(self):
         return self.observable.selectMode
+    
+    def setFitMode(self, mode):
+        fitModePrevious = self._fitMode
+        self._fitMode = mode 
+        if fitModePrevious == self.FIT_HOST:
+            # delete the host mesh
+            self._deleteBoundingBoxMesh()
 
     def setPointSize(self, size):
         self._pointSize = size
@@ -162,6 +171,7 @@ class Fitter(object):
         
 
     def register_automatic(self, translate=True, rotate=True, scale=True):
+        self.setFitMode(self.FIT_REGISTER_AUTO)
         # Use Ju's ICP
         import ICP
         # extract nodes into a numpy array
@@ -391,8 +401,8 @@ class Fitter(object):
         the optimiser works.
         """
         self._region_hmf = self._region_linear
-
-        self._fitMode = self.FIT_HOST
+        
+        self.setFitMode(self.FIT_HOST)
         self.setSelectMode(self.SelectModeNodes)
         #self._selectState = Field.DOMAIN_TYPE_NODES
         # TODO need to save state and set the status bar text, then swap state to "data" when a node is selected 
