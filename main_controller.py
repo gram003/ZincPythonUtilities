@@ -41,6 +41,7 @@ class MainController(object):
         self._model = fitter
         fitter.observable.observe('region', self._on_model_changed)
         fitter.observable.observe('selectMode', self._on_model_changed)
+        fitter.observable.observe('hmfProblemDefined', self._on_model_changed)
 
     def set_view(self, view):
         self._view = view
@@ -59,11 +60,10 @@ class MainController(object):
             os.chdir("..")
 
             # for testing register the mesh to the mirrored the data 
-            f = self._model
-            
+            #f = self._model
             self.data_mirror('y') # mirror in y axis
-            #self.register_automatic(translate=True, rotate=False, scale=False)
-            # self.register_automatic(translate=True, rotate=True)
+            self.register_automatic(translate=True, rotate=False, scale=False)
+            self.register_automatic(translate=True, rotate=True, scale=False)
             self._zw.viewAll()
             
             # convert to cubic
@@ -137,21 +137,36 @@ class MainController(object):
         a = Action(doFunc)
         self._undoStack.append(a)
         del self._redoStack[:]
+        w = self._view.find("redo")
+        w.enabled = False
+
+        w = self._view.find("undo")
+        w.enabled = True
+
 
     def undo(self):
         try:
             #command = self._undoStack.pop()
             action = self._undoStack.pop()
             action.undo()
+            w = self._view.find("undo")
+            w.enabled = len(self._undoStack) != 0
             self._redoStack.append(action)
+            w = self._view.find("redo")
+            w.enabled = len(self._redoStack) != 0
         except IndexError:
             return
-        
+
     def redo(self):
         try:
             action = self._redoStack.pop()
             action.do()
             self._undoStack.append(action)
+            w = self._view.find("undo")
+            w.enabled = len(self._undoStack) != 0
+            self._redoStack.append(action)
+            w = self._view.find("redo")
+            w.enabled = len(self._redoStack) != 0
         except IndexError:
             return
         
@@ -184,6 +199,7 @@ class MainController(object):
     def view_fitted_cubic(self, state):
         self._model.show_fitted_cubic(state)
 
+
     #
     # Selection mode
     #
@@ -201,14 +217,21 @@ class MainController(object):
         self._zw.setSelectModeNodes()
         self._zw.setSelectionModeAdditive(additive)
         
+    def select_no_mode(self):
+        self._model.setFitMode(self._model.FIT_NONE)
+
     def select_manual_reg(self):
         print funcname()
         self._zw.setSelectModeNodes()
         self._zw.setSelectionModeAdditive(False)
         self._model.hostmesh_register_setup()
 
-    def register_manual(self):
-        self._model.hostmesh_register_fit()
+    def register_manual(self, displacement_penalty):
+        if len(displacement_penalty) == 0:
+            displacement_penalty = 0
+        else:
+            displacement_penalty = float(displacement_penalty)
+        self._model.hostmesh_register_fit(displacement_penalty)
 
 
     #
@@ -249,7 +272,7 @@ class MainController(object):
     #
     
     def _on_model_changed(self, change):
-        print change['name'], change['value'] 
+        print funcname(), 'changed:',  change['name'], 'new value:', change['value'] 
         if change['name'] == 'region':
             region = change['value']
             if __debug__: print funcname(), region.getName()
@@ -272,5 +295,10 @@ class MainController(object):
             elif mode == None:
                 zw.setSelectModeNone()
                 self.set_status_message("")
+        elif change['name'] == 'hmfProblemDefined':
+            defined = change['value']
+            w = self._view.find('register_manual')
+            w.enabled = defined
+            
             
         

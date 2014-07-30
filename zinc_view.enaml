@@ -2,7 +2,7 @@
 from enaml.widgets.api import (
     MainWindow, ToolBar, Action, ActionGroup, Container, MenuBar, Menu,
     FileDialogEx, DockPane, PushButton, RadioButton, GroupBox, ObjectCombo,
-    StatusBar, StatusItem, CheckBox, Label, Field
+    StatusBar, StatusItem, CheckBox, Label, Field, Dialog
 )
 
 from enaml.layout.api import vbox, hbox, spacer
@@ -62,30 +62,34 @@ enamldef MyMenuBar(MenuBar): mb:
         title = '&Edit'
         Action:
             text = 'Undo\tCtrl+Z'
+            name = 'undo'
+            enabled = False
             triggered :: controller.undo()
         Action:
             text = 'Redo\tCtrl+R'
+            name = 'redo'
+            enabled = False
             triggered :: controller.redo()
-        Menu:
-            title = 'Undo Selection'
-            Action:
-                text = 'Undo Insert\tCtrl+U'
-                triggered :: print 'Undo Insert triggered'
-            Action:
-                text = 'Redo Insert\tCtrl+Shift+U'
-                enabled = False
-                triggered :: print 'Redo Insert triggered'
-        Action:
-            separator = True
-        Action:
-            text = 'Cut\tCtrl+X'
-            triggered :: print "Cut triggered"
-        Action:
-            text = 'Copy\tCtrl+C'
-            triggered :: print 'Copy triggered'
-        Action:
-            text = 'Paste\tCtrl+V'
-            triggered :: print 'Paste triggered'
+#         Menu:
+#             title = 'Undo Selection'
+#             Action:
+#                 text = 'Undo Insert\tCtrl+U'
+#                 triggered :: print 'Undo Insert triggered'
+#             Action:
+#                 text = 'Redo Insert\tCtrl+Shift+U'
+#                 enabled = False
+#                 triggered :: print 'Redo Insert triggered'
+#         Action:
+#             separator = True
+#         Action:
+#             text = 'Cut\tCtrl+X'
+#             triggered :: print "Cut triggered"
+#         Action:
+#             text = 'Copy\tCtrl+C'
+#             triggered :: print 'Copy triggered'
+#         Action:
+#             text = 'Paste\tCtrl+V'
+#             triggered :: print 'Paste triggered'
     Menu:
         title = '&View'
         Action:
@@ -157,36 +161,13 @@ enamldef RegistrationManualDockPane(DockPane):
             ObjectCombo: axis:
                 items = ['x', 'y', 'z']
                 hug_width = 'required'
+                
+        PushButton: 
+            text = 'Host mesh registration'
+            clicked ::
+                d = HMFDialog(self.parent)
+                d.show()
             
-        GroupBox:
-            constraints = [
-                            vbox(selectPoints, manual),
-                            ]
-            padding = 0
-            title = "Manual- HMF"
-            #flat = True
-#             GroupBox: ag:
-#                 # How do I provide some affordance about this. E.g how many points to select
-#                 RadioButton: sel_data:
-#                     text = "Sel data"
-#                     clicked :: controller.select_data(additive=False)
-#                 RadioButton: sel_nodes:
-#                     text = "Sel nodes"
-#                     clicked :: controller.select_nodes(additive=False)
-            PushButton: selectPoints:
-                text = 'Select points'
-                checkable = True
-                clicked ::
-                    controller.select_manual_reg()
-#                    statusText.text = "Select a node"
-#             Label: statusText:
-#                 # the main status bar observes this
-#                 visible = False
-#                 name = 'status'
-            PushButton: manual:
-                text = 'Register'
-                clicked :: controller.register_manual()
-
         GroupBox:
             title = 'Automatic'
             CheckBox: translate:
@@ -201,7 +182,9 @@ enamldef RegistrationManualDockPane(DockPane):
                 # FIXME: add seperate scaling for each axis (use radio buttons to select single or axiswise scaling)
             PushButton: auto:
                 text = 'Register'
-                clicked :: controller.register_automatic(translate.checked, rotate.checked, scale.checked)
+                clicked ::
+                    selectPoints.checked = False
+                    controller.register_automatic(translate.checked, rotate.checked, scale.checked)
             
 # enamldef RegistrationAutoDockPane(DockPane):
 #     attr controller = parent.controller
@@ -210,6 +193,54 @@ enamldef RegistrationManualDockPane(DockPane):
 #         PushButton: auto:
 #             text = 'Register'
 #             clicked :: controller.register_automatic()
+
+enamldef RegistrationHostMeshDockPane(DockPane):
+    attr controller = parent.controller
+    title = 'Host mesh registration'
+    GroupBox:
+        constraints = [
+                        vbox(selectPoints,
+                             hbox(lblDisp, displacement_penalty),
+                             manual),
+                       displacement_penalty.width == 50
+                        ]
+        padding = 0
+        title = "Manual- HMF"
+        #flat = True
+#             GroupBox: ag:
+#                 # How do I provide some affordance about this. E.g how many points to select
+#                 RadioButton: sel_data:
+#                     text = "Sel data"
+#                     clicked :: controller.select_data(additive=False)
+#                 RadioButton: sel_nodes:
+#                     text = "Sel nodes"
+#                     clicked :: controller.select_nodes(additive=False)
+        PushButton: selectPoints:
+            text = 'Select points'
+            checkable = True
+            checked = False
+            toggled ::
+                if checked:
+                    controller.select_manual_reg()
+                else:
+                    controller.select_no_mode()
+#                    statusText.text = "Select a node"
+#             Label: statusText:
+#                 # the main status bar observes this
+#                 visible = False
+#                 name = 'status'
+        Label: lblDisp:
+            text = 'Disp. penalty'
+        Field: displacement_penalty:
+            #mask = '0'
+            placeholder = '0'
+        PushButton: manual:
+            text = 'Register'
+            name = 'register_manual'
+            enabled = False
+            clicked ::
+                controller.register_manual(displacement_penalty.field_text())
+                selectPoints.checked = False
 
 enamldef FitDockPane(DockPane):
     title = "Fit"
@@ -254,13 +285,11 @@ enamldef FitDockPane(DockPane):
                 Field: arclen:
                     #mask = '0'
                     placeholder = '0'
-                    pass
                 Label: lblcurvature:
                     text = 'Curvature'
                 Field: curvature:
                     placeholder = '0'
                     #mask = '0'
-                    pass
             PushButton:
     #             Action:
     #                 checkable = True
@@ -277,11 +306,18 @@ enamldef MyToolBar(ToolBar):
 #             checkable = True
 #             text = 'RA'
 #             tool_tip = "Automatic registration"
+        
         alias manual_registration
         Action: manual_registration:
             checkable = True
             text = 'Reg'
             tool_tip = "Registration tools"
+        
+        alias hmf_registration
+        Action: hmf_registration:
+            checkable = True
+            text = 'HMR'
+
         alias fit
         Action: fit:
             checkable = True
@@ -315,9 +351,10 @@ enamldef MyStatusBar(StatusBar):
     alias statusLabel: statusLabel
     StatusItem:
         Label: statusLabel:
-            text = "Status"
+            text = "Select a tool"
             name = 'status'
-            
+
+
 enamldef Main(MainWindow): main:
     title = 'Zinc Widget'
     initial_size = (800,600)
@@ -334,6 +371,15 @@ enamldef Main(MainWindow): main:
     RegistrationManualDockPane: reg_man_pane:
         floating = False
         visible << tb.ag.manual_registration.checked
+        
+    RegistrationHostMeshDockPane: reg_hmf_pane:
+        floating = False
+        visible << tb.ag.hmf_registration.checked
+        closed ::
+            controller.select_no_mode()
+            tb.ag.hmf_registration.checked = False
+            sb.statusLabel.text = "Select a tool"
+    
 #     RegistrationAutoDockPane: reg_auto_pane:
 #         floating = False
 #         visible << tb.ag.auto_registration.checked
@@ -345,7 +391,7 @@ enamldef Main(MainWindow): main:
  
         EZincWidget:
             name = "ZincWidget"
-            context = Context("foo")
+            context = Context("Fitter")
             # need to create an event that gets called when it is created
 
     closed :: controller.on_closed()
