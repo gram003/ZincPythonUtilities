@@ -1,13 +1,14 @@
 import sys
 from functools import partial
 
-from opencmiss import zinc
+#from opencmiss import zinc
 
 from opencmiss.zinc.glyph import Glyph
 #from opencmiss.zinc.element import Element, Elementbasis
 from opencmiss.zinc.field import Field, FieldFindMeshLocation, FieldGroup
 from opencmiss.zinc.optimisation import Optimisation
 from opencmiss.zinc.region import Region
+from opencmiss.zinc.status import OK
 
 #from opencmiss.zinc.selection import Selectioncallback
 
@@ -176,9 +177,9 @@ class Fitter(object):
         import ICP
         # extract nodes into a numpy array
         with get_field_module(self._region_linear) as fm:
-            nodeset = fm.findNodesetByFieldDomainType(Field.DOMAIN_TYPE_NODES)
             
             # Create the undo function
+            nodeset = fm.findNodesetByFieldDomainType(Field.DOMAIN_TYPE_NODES)            
             undoFitted = self.create_fitted_nodes_undo(nodeset)
             undoReference = self.create_reference_nodes_undo(nodeset)
             def restore():
@@ -264,21 +265,100 @@ class Fitter(object):
                 for y in [0, 1]:
                     for x in [0, 1]:
                         host_nodes.append([ n[x][0], n[y][1], n[z][2]])
-                        
-            #print np.array(host_nodes)
             
             element = [[i for i in xrange(max_node+1, max_node+9)]]
-            gfHost = fm.createFieldGroup()
+            gfHost = fm.findFieldByName('host').castGroup()
+            if not gfHost.isValid():
+                gfHost = fm.createFieldGroup()
+                gfHost.setName('host')
+            assert(gfHost.isValid())
             gfHost.setSubelementHandlingMode(FieldGroup.SUBELEMENT_HANDLING_MODE_FULL)
-            gfHost.setManaged(True) # prevent group from being destroyed when not in use
-            gfHost.setName('host')
+            #gfHost.setManaged(True) # prevent group from being destroyed when not in use
+                
             mesh3d = fm.findMeshByDimension(3)
-            hostElemGroup = gfHost.createFieldElementGroup(mesh3d)
+            hostElemGroup = gfHost.getFieldElementGroup(mesh3d)
+            if not hostElemGroup.isValid():
+                hostElemGroup = gfHost.createFieldElementGroup(mesh3d)
+                
             meshGroup = hostElemGroup.getMeshGroup()
+            meshGroup.removeAllElements()
+            
+            start_element_id = mesh3d.getSize()+1
+            
             # newly created element(s) and nodes will have the highest id's
             mesh.linear_mesh(meshGroup, host_nodes, element, coordinate_field_name="host_"+coordinateFieldName)
-            
+            mesh.linear_mesh(meshGroup, host_nodes, element, coordinate_field_name="ref_host_"+coordinateFieldName,
+                             merge=True, start_node_id=len(nodes)+1, start_element_id=start_element_id)
+
             return gfHost
+        
+    def _deleteBoundingBoxMesh(self):
+        with get_field_module(self._region_hmf) as fm:
+            gsHost, gmHost = self._getHostGroups(fm)
+            print funcname(), 'Host: nodes', gsHost.getSize(), 'elements', gmHost.getSize()
+            
+            sModel = gsHost.getMasterNodeset()
+            mModel = gmHost.getMasterMesh()
+            print funcname(), 'Model: nodes', sModel.getSize(), 'elements', mModel.getSize()
+            
+#             dp_iter = gsData.createNodeiterator()    
+#             dataTemplate = sData.createNodetemplate()
+#             dataTemplate.defineField(stored_location)
+#             cache = fm.createFieldcache()
+#             datapoint = dp_iter.next()
+#             if __debug__: print "Embedding fiducial markers..."
+#             while datapoint.isValid():
+#                 if __debug__: print "dp", datapoint.getIdentifier(),
+#                 cache.setNode(datapoint)
+#                 element, xi = found_location.evaluateMeshLocation(cache, 3)
+#                 if element.isValid():
+#                     datapoint.merge(dataTemplate)
+#                     stored_location.assignMeshLocation(cache, element, xi)
+#                     if __debug__: print "elem", element.getIdentifier(), xi
+#                  
+#                 datapoint = dp_iter.next()
+            
+            # remove all the nodes and elements
+            elem_iter = gmHost.createElementiterator()
+            elem = elem_iter.next()
+            while elem.isValid():
+                mModel.destroyElement(elem)
+                elem = elem_iter.next()
+            
+            node_iter = gsHost.createNodeiterator()
+            node = node_iter.next()
+            while node.isValid():
+                sModel.destroyNode(node)
+                node = node_iter.next()
+
+            print funcname(), 'nodes', sModel.getSize(), 'elements', mModel.getSize()
+
+            # remove nodes and elements from the group
+            ok = gmHost.removeAllElements()
+            assert(ok == OK)
+            ok = gsHost.removeAllNodes()
+            assert(ok == OK)
+            print funcname(), 'nodes', gsHost.getSize(), 'elements', gmHost.getSize()
+            
+            gfHost = fm.findFieldByName('host').castGroup()
+            gfHost.setManaged(False)
+
+
+    def _getHostGroups(self, fm):
+        gfHost = fm.findFieldByName('host').castGroup()
+        assert(gfHost.isValid())
+        sHost = fm.findNodesetByFieldDomainType(Field.DOMAIN_TYPE_NODES)
+        gsHost = gfHost.getFieldNodeGroup(sHost).getNodesetGroup()
+        assert(gsHost.isValid())
+        
+        # get the host mesh group
+        meshHost = fm.findMeshByDimension(3)
+        gmHost = gfHost.getFieldElementGroup(meshHost).getMeshGroup()
+        assert(gmHost.isValid())
+        assert(gmHost.getSize() == 1)
+        
+        return gsHost, gmHost
+
 
     def _addPointsToMarkerGroups(self, targets):
         """
@@ -343,35 +423,16 @@ class Fitter(object):
                     print "_addPointsToMarkerGroups", 'dp', dp_id, "coords=", result, outValues, 
                     result, outValues = marker_coordinates.evaluateReal(cache, 3)
                     print "marker=", result, outValues
+                    print funcname(), "data group size", gsData.getSize()
 
-#             # embed the nodes in the host mesh
-#             nodes_found_location = fm.createFieldFindMeshLocation(node_coordinates, host_coordinates, meshGroup)
-#             nodes_found_location.setSearchMode(FieldFindMeshLocation.SEARCH_MODE_EXACT)
-#             nodes_stored_location = fm.createFieldStoredMeshLocation(mesh3d)
-#             nodes_stored_location.setName('nodes_stored_location')
-#  
-#             sNodes = fm.findNodesetByFieldDomainType(Field.DOMAIN_TYPE_NODES)
-#             nd_iter = sNodes.createNodeiterator()
-#       
-#             nodeTemplate = sNodes.createNodetemplate()
-#             nodeTemplate.defineField(nodes_stored_location)
-#             cache = fm.createFieldcache()
-#             node = nd_iter.next()
-#             if __debug__: print "Embedding nodes..."
-#             while node.isValid():
-#                 if __debug__: print "nd", node.getIdentifier(),
-#                 cache.setNode(node)
-#                 element, xi = nodes_found_location.evaluateMeshLocation(cache, 3)
-#                 if element.isValid():
-#                     node.merge(nodeTemplate)
-#                     nodes_stored_location.assignMeshLocation(cache, element, xi)
-#                     if __debug__: print "elem", element.getIdentifier(), xi
-#  
-#                 node = nd_iter.next()
+            # fire a signal that the UI can use to enable the register button
+            if gsData.getSize() >= 3:
+                self.observable.hmfProblemDefined = True
 
 
     def graphics_selected(self, item, fieldDomainType):
-        print funcname(), "domainType", fieldDomainType, "item id", item.getIdentifier()
+        if __debug__:
+            print funcname(), "domainType", fieldDomainType, "item id", item.getIdentifier()
         if self._fitMode == self.FIT_HOST:
             if self.getSelectMode() == self.SelectModeNodes and \
                     fieldDomainType == Field.DOMAIN_TYPE_NODES:
@@ -400,6 +461,7 @@ class Fitter(object):
         to do the optimisation. It is done this way because of the way that
         the optimiser works.
         """
+        self.observable.hmfProblemDefined = False
         self._region_hmf = self._region_linear
         
         self.setFitMode(self.FIT_HOST)
@@ -407,16 +469,25 @@ class Fitter(object):
         #self._selectState = Field.DOMAIN_TYPE_NODES
         # TODO need to save state and set the status bar text, then swap state to "data" when a node is selected 
         
-        # FIXME: get nodes from selection
-        #nodes = [9, 39, 89, 25, 90, 129]
-        #datapoints = [160, 549, 112, 19, 428, 274]
+        # normally we get nodes from selection
         nodes = []
         datapoints = []
+        
+        _testing = True
+        #_testing = False
+        # for testing specify the nodes so that we don't have to select them each time
+        if _testing:
+#             nodes = [9, 39, 89, 25, 90, 129]
+#             datapoints = [160, 549, 112, 19, 428, 274]
+            nodes = [73, 61, 89, 27, 114, 131, 83, 39]
+            datapoints = [1505, 132, 2039, 2057, 2400, 2145, 1747, 1178]
+        #nodes = [73, 2, 89, 61]
+        #datapoints = [442, 1431, 310, 2266]
         
         # Create a dict where the target data point ids are the keys. This is
         # because we need to get the datapoints back later by iterating a
         # nodeset and they will be in numerical order then. 
-        #targets = dict(zip(nodes, datapoints))
+        targets = dict(zip(nodes, datapoints))
 
         with get_field_module(self._region_hmf) as fm:
             
@@ -454,8 +525,10 @@ class Fitter(object):
             node_coordinates = fm.findFieldByName(self._coords_name)
             data_coordinates = fm.findFieldByName(self._data_coords_name)
             host_coordinates = fm.findFieldByName('host_coordinates')
-            marker_coordinates = fm.createFieldFiniteElement(3)
-            marker_coordinates.setName('marker_coordinates')
+            marker_coordinates = fm.findFieldByName('marker_coordinates')
+            if not marker_coordinates.isValid():
+                marker_coordinates = fm.createFieldFiniteElement(3)
+                marker_coordinates.setName('marker_coordinates')
             
             hostElemGroup = gfHost.getFieldElementGroup(mesh3d)
             meshGroup = hostElemGroup.getMeshGroup()
@@ -463,8 +536,15 @@ class Fitter(object):
             # create a nodeset group containing the selected datapoints
             sData = fm.findNodesetByFieldDomainType(Field.DOMAIN_TYPE_DATAPOINTS)
     
-            gnfData = fm.createFieldNodeGroup(sData)
-            gnfData.setName("hmf_datapoints")
+            fData = fm.findFieldByName('hmf_datapoints')
+            print "fData.isValid()", fData.isValid()
+            if fData.isValid():
+                gnfData = fData.castNodeGroup()
+                print "gnfData.isValid()", gnfData.isValid()
+            else:
+                gnfData = fm.createFieldNodeGroup(sData)
+                gnfData.setName("hmf_datapoints")
+
             gsData = gnfData.getNodesetGroup()
             gsData.removeAllNodes()
 
@@ -505,15 +585,19 @@ class Fitter(object):
 
             #self._addNodeCoordToMarkerGroup(nodes)
 
-            # create fields for embedding the fiducial markers 
-            found_location = fm.createFieldFindMeshLocation(marker_coordinates, host_coordinates, meshGroup)
-            found_location.setSearchMode(FieldFindMeshLocation.SEARCH_MODE_EXACT)
-            found_location.setName('hmf_found_location')
+            # create fields for embedding the fiducial markers
+            found_location =fm.findFieldByName('hmf_found_location')
+            if not found_location.isValid():
+                found_location = fm.createFieldFindMeshLocation(marker_coordinates, host_coordinates, meshGroup)
+                found_location.setSearchMode(FieldFindMeshLocation.SEARCH_MODE_EXACT)
+                found_location.setName('hmf_found_location')
             found_location.setManaged(True)
-            stored_location = fm.createFieldStoredMeshLocation(mesh3d)
-            stored_location.setName('hmf_stored_location')
+
+            stored_location = fm.findFieldByName('hmf_stored_location')
+            if not stored_location.isValid():
+                stored_location = fm.createFieldStoredMeshLocation(mesh3d)
+                stored_location.setName('hmf_stored_location')
             stored_location.setManaged(True)
-            
 
 #             dp_iter = gsData.createNodeiterator()    
 #             dataTemplate = sData.createNodetemplate()
@@ -532,12 +616,18 @@ class Fitter(object):
 #                  
 #                 datapoint = dp_iter.next()
 # 
-            # embed all of the nodes in the host mesh so they can be
-            # moved after the new host mesh has been calculated
-            nodes_found_location = fm.createFieldFindMeshLocation(node_coordinates, host_coordinates, meshGroup)
-            nodes_found_location.setSearchMode(FieldFindMeshLocation.SEARCH_MODE_EXACT)
-            nodes_stored_location = fm.createFieldStoredMeshLocation(mesh3d)
-            nodes_stored_location.setName('nodes_stored_location')
+            # Embed all of the nodes in the host mesh so that we can later use
+            # it for transforming them.
+            nodes_found_location = fm.findFieldByName('nodes_found_location')
+            if not nodes_found_location.isValid():
+                nodes_found_location = fm.createFieldFindMeshLocation(node_coordinates, host_coordinates, meshGroup)
+                nodes_found_location.setSearchMode(FieldFindMeshLocation.SEARCH_MODE_EXACT)
+                nodes_found_location.setName('nodes_found_location')
+            
+            nodes_stored_location = fm.findFieldByName('nodes_stored_location')
+            if not nodes_stored_location.isValid():
+                nodes_stored_location = fm.createFieldStoredMeshLocation(mesh3d)
+                nodes_stored_location.setName('nodes_stored_location')
  
             sNodes = fm.findNodesetByFieldDomainType(Field.DOMAIN_TYPE_NODES)
             nd_iter = sNodes.createNodeiterator()
@@ -562,23 +652,24 @@ class Fitter(object):
             # it is required so that the optimizer can recalculate the new host coordinates.
             self._hmf_projected_coordinates = fm.createFieldEmbedded(host_coordinates, stored_location)
             
-            error_vector = fm.createFieldSubtract(self._hmf_projected_coordinates, data_coordinates)
-            error_vector.setName('error')
-            self._hmf_error = error_vector
-
-            # Embed the nodes in the host mesh so that we can later use it for transforming them 
+            fError = fm.findFieldByName('error')
+            if not fError.isValid():
+                fError = fm.createFieldSubtract(self._hmf_projected_coordinates, data_coordinates)
+                fError.setName('error')
+            self._hmf_error = fError
 
             #self._region_linear.writeFile("proj.exregi")
 
             with get_scene(self._region_linear) as scene:
-                self._createProjectionGraphics(scene, self._hmf_projected_coordinates, gnfData, error_vector)
+                self._createProjectionGraphics(scene, self._hmf_projected_coordinates, gnfData, fError)
+                
+            if _testing:
+                self._addPointsToMarkerGroups(targets)
  
-        return restore        
-
     def hostmesh_register_fit(self, alpha=0):
         self.setSelectMode(self.SelectModeNone)
         self._fitMode = None
-
+        
         # define an optimisation problem    
         with get_field_module(self._region_linear) as fm:
             #data_nodeset_group = self._hmf_gsData
