@@ -2,10 +2,7 @@ import math
 import numpy as np
 
 from opencmiss.zinc.element import Element, Elementbasis
-from opencmiss.zinc.status import OK
 from opencmiss.zinc.field import Field
-
-from opencmiss.zinc.element import MeshGroup
 
 from tools.utilities import get_field_module
 
