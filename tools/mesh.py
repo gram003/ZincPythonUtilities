@@ -50,9 +50,14 @@ def _coordinate_field(nodeset,
         node_template = nodeset.createNodetemplate()
 
         for name in coordinate_fields:
-            finite_element_field = field_module.createFieldFiniteElement(coord_count)
-            finite_element_field.setName(name)
-                # Set the finite element coordinate field for the nodes to use
+            finite_element_field = field_module.findFieldByName(name)
+            if not finite_element_field.isValid():
+                finite_element_field = field_module.createFieldFiniteElement(coord_count)
+                finite_element_field.setName(name)
+            else:
+                assert(finite_element_field.getNumberOfComponents() == coord_count)
+
+            # Set the finite element coordinate field for the nodes to use
             node_template.defineField(finite_element_field)
             finite_element_fields.append(finite_element_field)
         
