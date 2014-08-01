@@ -785,7 +785,7 @@ class Fitter(object):
 
     def _create_nodes_undo(self, nodesetGroup, coordinateFieldName):
         # save the nodes state
-        nodes = mesh.nodes_to_list(nodesetGroup, 3, coordinateFieldName)
+        nodes = mesh.nodes_to_dict(nodesetGroup, 3, coordinateFieldName)
         
         def restore(data):
             mesh.update_nodes(nodesetGroup, nodes, coordinateFieldName)
