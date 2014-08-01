@@ -11,6 +11,17 @@ from enaml_zinc_widget import EZincWidget
 
 from opencmiss.zinc.context import Context
 
+"""
+Chris Colbert:
+Yeah, we're missing docs on the various operators. The short version:
+
+    "=" - The simple assignment operator. Assigns RHS value to LHS attribute. RHS must be an expression. Lazily evaluated with no subscription behavior.
+    "<<" - The subscription operator. Assigns RHS value to LHS attribute. RHS must be an expression. Lazily evaluated the first time, will re-evaluate when dependencies change.
+    ">>" - The update operator. Assigns LHS attribute to RHS expression. RHS must be an lvalue expression. RHS is updated whenever LHS attribute is updated.
+    ":=" - The delegation operator. A combination of the "<<" and ">>" operators.
+    "::" - The notification operator. Executes RHS whenever the LHS attribute changes. RHS can be any block of Python code except for "def", "class", "yield" and "return'."""
+
+
 enamldef MyMenuBar(MenuBar): mb:
     attr path : unicode = u""
     attr controller = parent.controller
@@ -135,9 +146,9 @@ enamldef MyMenuBar(MenuBar): mb:
             checkable = True
             checked = True
 
-enamldef RegistrationManualDockPane(DockPane):
+enamldef DataDockPane(DockPane):
     attr controller = parent.controller
-    title = "Registration"
+    title = "Data"
     # alias statusText: statusText
     Container:
         padding = 0
@@ -161,12 +172,26 @@ enamldef RegistrationManualDockPane(DockPane):
             ObjectCombo: axis:
                 items = ['x', 'y', 'z']
                 hug_width = 'required'
-                
-        PushButton: 
-            text = 'Host mesh registration'
-            clicked ::
-                d = HMFDialog(self.parent)
-                d.show()
+
+
+
+enamldef RegistrationAutoDockPane(DockPane):
+    attr controller = parent.controller
+    title = "Registration"
+    # alias statusText: statusText
+    Container:
+        padding = 0
+#         constraints = [
+#                        vbox(hbox(mirror, axis),
+#                             auto,
+#                             manual)
+#         ]
+#        GroupBox:
+#         PushButton: 
+#             text = 'Host mesh registration'
+#             clicked ::
+#                 d = HMFDialog(self.parent)
+#                 d.show()
             
         GroupBox:
             title = 'Automatic'
@@ -183,7 +208,7 @@ enamldef RegistrationManualDockPane(DockPane):
             PushButton: auto:
                 text = 'Register'
                 clicked ::
-                    selectPoints.checked = False
+                    #selectPoints.checked = False
                     controller.register_automatic(translate.checked, rotate.checked, scale.checked)
             
 # enamldef RegistrationAutoDockPane(DockPane):
@@ -199,7 +224,7 @@ enamldef RegistrationHostMeshDockPane(DockPane):
     title = 'Host mesh registration'
     GroupBox:
         constraints = [
-                        vbox(selectPoints,
+                        vbox(#selectPoints,
                              hbox(lblDisp, displacement_penalty),
                              manual),
                        displacement_penalty.width == 50
@@ -215,15 +240,10 @@ enamldef RegistrationHostMeshDockPane(DockPane):
 #                 RadioButton: sel_nodes:
 #                     text = "Sel nodes"
 #                     clicked :: controller.select_nodes(additive=False)
-        PushButton: selectPoints:
-            text = 'Select points'
-            checkable = True
-            checked = False
-            toggled ::
-                if checked:
-                    controller.select_manual_reg()
-                else:
-                    controller.select_no_mode()
+#         PushButton: selectPoints:
+#             text = 'Select points'
+#             checkable = True
+#             checked = False
 #                    statusText.text = "Select a node"
 #             Label: statusText:
 #                 # the main status bar observes this
@@ -240,7 +260,7 @@ enamldef RegistrationHostMeshDockPane(DockPane):
             enabled = False
             clicked ::
                 controller.register_manual(displacement_penalty.field_text())
-                selectPoints.checked = False
+                #selectPoints.checked = False
 
 enamldef FitDockPane(DockPane):
     title = "Fit"
@@ -301,27 +321,36 @@ enamldef MyToolBar(ToolBar):
     attr controller = parent.controller
     alias ag: ag
     ActionGroup: ag:
-#         alias auto_registration
-#         Action: auto_registration:
-#             checkable = True
-#             text = 'RA'
-#             tool_tip = "Automatic registration"
+        alias data_tools
+        Action: data_tools:
+            checkable = True
+            text = 'Data'
+            tool_tip = "Data manipulation"
         
-        alias manual_registration
-        Action: manual_registration:
+        alias auto_registration
+        Action: auto_registration:
             checkable = True
             text = 'Reg'
-            tool_tip = "Registration tools"
+            tool_tip = "Automatic registration"
         
         alias hmf_registration
         Action: hmf_registration:
             checkable = True
             text = 'HMR'
+            tool_tip = "Host mesh registration"
+            triggered ::
+                print "hmf_registration triggered", self.triggered
+            toggled ::
+                if checked:
+                    controller.select_manual_reg()
+                else:
+                    controller.select_no_mode()
 
         alias fit
         Action: fit:
             checkable = True
             text = 'Fit'
+            tool_tip = "Fitting"
 #             triggered :: controller.on_select_data()
 #         Action:
 #             checkable = True
@@ -368,18 +397,24 @@ enamldef Main(MainWindow): main:
         pass
 #     Conditional:
 #         condition << bool(tb.data_toolbox)
-    RegistrationManualDockPane: reg_man_pane:
+    DataDockPane: data_pane:
         floating = False
-        visible << tb.ag.manual_registration.checked
-        
-    RegistrationHostMeshDockPane: reg_hmf_pane:
+        visible := tb.ag.data_tools.checked
+
+    RegistrationAutoDockPane: reg_man_pane:
         floating = False
-        visible << tb.ag.hmf_registration.checked
+        visible := tb.ag.auto_registration.checked
         closed ::
             controller.select_no_mode()
-            tb.ag.hmf_registration.checked = False
             sb.statusLabel.text = "Select a tool"
-    
+                
+    RegistrationHostMeshDockPane: reg_hmf_pane:
+        floating = False
+        visible := tb.ag.hmf_registration.checked
+        closed ::
+            controller.select_no_mode()
+            sb.statusLabel.text = "Select a tool"
+                
 #     RegistrationAutoDockPane: reg_auto_pane:
 #         floating = False
 #         visible << tb.ag.auto_registration.checked
