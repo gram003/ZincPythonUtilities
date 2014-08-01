@@ -349,19 +349,34 @@ class Fitter(object):
 
 
     def _getHostGroups(self, fm):
+        # get the host nodeset group
         gfHost = fm.findFieldByName('host').castGroup()
         assert(gfHost.isValid())
-        sHost = fm.findNodesetByFieldDomainType(Field.DOMAIN_TYPE_NODES)
-        gsHost = gfHost.getFieldNodeGroup(sHost).getNodesetGroup()
+        sNodes = fm.findNodesetByFieldDomainType(Field.DOMAIN_TYPE_NODES)
+        gsHost = gfHost.getFieldNodeGroup(sNodes).getNodesetGroup()
         assert(gsHost.isValid())
         
         # get the host mesh group
-        meshHost = fm.findMeshByDimension(3)
-        gmHost = gfHost.getFieldElementGroup(meshHost).getMeshGroup()
+        mesh3d = fm.findMeshByDimension(3)
+        gmHost = gfHost.getFieldElementGroup(mesh3d).getMeshGroup()
         assert(gmHost.isValid())
         assert(gmHost.getSize() == 1)
         
         return gsHost, gmHost
+    
+    def _getModelGroups(self, fm):
+        # Get the model nodeset and mesh groups
+        gfModel = fm.findFieldByName('model').castGroup()
+        assert(gfModel.isValid())
+        sNodes = fm.findNodesetByFieldDomainType(Field.DOMAIN_TYPE_NODES)
+        gsModel = gfModel.getFieldNodeGroup(sNodes).getNodesetGroup()
+        assert(gsModel.isValid())
+
+        mesh3d = fm.findMeshByDimension(3)
+        gmModel = gfModel.getFieldElementGroup(mesh3d).getMeshGroup()
+        assert(gmModel.isValid())
+        
+        return gsModel, gmModel
 
 
     def _addPointsToMarkerGroups(self, targets):
@@ -671,11 +686,24 @@ class Fitter(object):
                 self._addPointsToMarkerGroups(targets)
  
     def hostmesh_register_fit(self, alpha=0):
-        self.setSelectMode(self.SelectModeNone)
-        self._fitMode = None
+        #self.setSelectMode(self.SelectModeNone)
+        #self._fitMode = None
         
         # define an optimisation problem    
         with get_field_module(self._region_linear) as fm:
+
+            # Create the undo function
+            gsModel, gmModel = self._getModelGroups(fm)
+            undoFitted = self.create_fitted_nodes_undo(gsModel)
+            undoReference = self.create_reference_nodes_undo(gsModel)
+            gsHost, gmHost = self._getHostGroups(fm)
+            undoHost =  self._create_nodes_undo(gsHost, 'host_coordinates')
+
+            def restore():
+                undoFitted()
+                undoReference()
+                undoHost()
+            
             #data_nodeset_group = self._hmf_gsData
             gnfData = fm.findFieldByName("hmf_datapoints").castNodeGroup()
             if not gnfData.isValid():
@@ -773,6 +801,8 @@ class Fitter(object):
             # Find and delete the host element and nodes
 
             self._region_linear.writeFile("hmf.exregi")
+        
+        return restore
     
     def create_data_undo(self, nodesetGroup):
         # save the original data state
@@ -874,6 +904,8 @@ class Fitter(object):
         #self._cubic_graphics_ref = self._create_graphics_mesh(region_cubic, self._ref_coords_name, colour='blue')
 
         self._cubic_graphics_data = self._create_graphics_data(region_cubic, self._data_coords_name)
+        
+        return undo
 
     def storeSelectedFaces(self):
         self._selectedFaces = []
