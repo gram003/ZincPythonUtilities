@@ -228,7 +228,8 @@ class Fitter(object):
                                          nodes_to_move=master_node_list)
         # T, trans_nodes = ICP.fitDataRigidEPDP(n, d)
         # T, trans_nodes = ICP.fitDataRigidScaleEPDP(n, d)
-        print len(trans_nodes)
+        if __debug__:
+            print "number of nodes transformed:", len(trans_nodes)
         
         mesh.update_nodes(nodeset, trans_nodes.tolist(), 'coordinates')
         mesh.update_nodes(nodeset, trans_nodes.tolist(), 'reference_coordinates')
@@ -265,7 +266,7 @@ class Fitter(object):
             
             host_nodes = []
              
-            for z in [0, 1]: 
+            for z in [0, 1]:
                 for y in [0, 1]:
                     for x in [0, 1]:
                         host_nodes.append([ n[x][0], n[y][1], n[z][2]])
@@ -485,10 +486,8 @@ class Fitter(object):
         
         self.setFitMode(self.FIT_HOST)
         self.setSelectMode(self.SelectModeNodes)
-        #self._selectState = Field.DOMAIN_TYPE_NODES
-        # TODO need to save state and set the status bar text, then swap state to "data" when a node is selected 
         
-        # normally we get nodes from selection
+        # normally we get nodes and datapoints from the selection
         nodes = []
         datapoints = []
         
@@ -803,7 +802,7 @@ class Fitter(object):
             self._region_linear.writeFile("hmf.exregi")
         
         return restore
-    
+
     def create_data_undo(self, nodesetGroup):
         # save the original data state
         data_list = mesh.data_to_list(nodesetGroup, 3, self._data_coords_name)
@@ -827,7 +826,7 @@ class Fitter(object):
 
     def create_reference_nodes_undo(self, nodesetGroup):
         return self._create_nodes_undo(nodesetGroup, "reference_coordinates")
-        
+
     def data_mirror(self, axis, about_centroid=True):
         """
         Reflect the data about its centroid in the plane given by axis
@@ -860,7 +859,7 @@ class Fitter(object):
         mesh.update_data(datapointset, data_list.tolist(), self._data_coords_name)
         
         return undo
-    
+
     def _clear_region(self, region):
         with get_field_module(region) as fm:
             sData = fm.findNodesetByFieldDomainType(Field.DOMAIN_TYPE_DATAPOINTS)
@@ -872,8 +871,7 @@ class Fitter(object):
 
             for ns in [sData, sNodes]:
                 ns.destroyAllNodes()
-                
-        
+
 
     def convert_to_cubic(self):
         region_cubic = self.getRootRegion().findChildByName("cubic_lagrange")
