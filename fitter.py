@@ -879,7 +879,17 @@ class Fitter(object):
         region_cubic = self.getRootRegion().findChildByName("cubic_lagrange")
         if not region_cubic.isValid():
             region_cubic = self.getRootRegion().createChild("cubic_lagrange")
+
+        previousRegion = self.getFitRegion()
         self._region_cubic = region_cubic
+        self.setFitRegion(region_cubic)
+
+        def undo():        
+            # delete the cubic region and set the current region to whatever it was previously
+            region_cubic.getScene().removeAllGraphics()
+            self._clear_region(region_cubic)
+            self.setFitRegion(previousRegion)
+
         #self.setCurrentRegion(region_cubic)
         #region_cubic.setName("cubic_lagrange")
         with get_field_module(self._region_linear) as fm, \

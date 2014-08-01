@@ -254,7 +254,7 @@ class MainController(object):
     #
 
     def convert_to_cubic(self):
-        self._model.convert_to_cubic()
+        self._create_action(self._model.convert_to_cubic)
         # how to set the active region?
 
     def project(self):
