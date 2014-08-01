@@ -1,5 +1,6 @@
 import math
 import numpy as np
+import itertools
 
 from opencmiss.zinc.element import Element, Elementbasis
 from opencmiss.zinc.field import Field
@@ -414,28 +415,70 @@ def _nodes_to_list(nodeset, numValues=3, coordFieldName='coordinates'):
 
     return node_list
 
-def _update_nodes(nodeset, coordinate_set, nodesetName, coordFieldName='coordinates'):
+def _nodes_to_dict(nodeset, numValues=3, coordFieldName='coordinates'):
     """
-    Update nodes with the coordinates in the given coordinate_set (as a Python List).
+    Extract nodes into a Python list
+    """
+    fm = nodeset.getFieldmodule()
+    field = fm.findFieldByName(coordFieldName)
+
+    # extract the list of nodes 
+    node_dict = {}
+    node_iter = nodeset.createNodeiterator()
+    cache = fm.createFieldcache()
+    count = 0
+    node = node_iter.next()
+    while node.isValid():
+        cache.setNode(node)
+        node_id = node.getIdentifier()
+        result, outValues = field.evaluateReal(cache, numValues)
+        if result:
+            node_dict[node_id] = outValues
+        else:
+            raise RuntimeError("evaluateReal failed for node %d" % node_id)
+        node = node_iter.next()
+        count += 1
+
+    return node_dict
+
+
+def _update_nodes(nodeset, coordinates, nodesetName, coordFieldName='coordinates'):
+    """
+    Update nodes with the coordinates in the given coordinates
+    as a Python list or dict => node_id: coords.
     """
     
     # Update nodes with new coordinates 
     with get_field_module(nodeset) as fm:
         field = fm.findFieldByName(coordFieldName)
+        cache = fm.createFieldcache()
         
         num_nodes = nodeset.getSize()
-        if num_nodes != len(coordinate_set):
-            raise RuntimeError("Update list must have the same number of nodes as the nodeset. Got %d nodeset has %d."
-                               % (len(coordinate_set), num_nodes))
-
-        cache = fm.createFieldcache()
-        node_id = 1
-        for coords in coordinate_set:
-            node = nodeset.findNodeByIdentifier(node_id)
-            cache.setNode(node)
-            result = field.assignReal(cache, coords)
-            node_id += 1
+        if isinstance(coordinates, list):
+            if num_nodes < len(coordinates):
+                raise RuntimeError("Update list may not have more values than nodeset. Got %d nodeset has %d."
+                                   % (len(coordinates), num_nodes))
             
+            # convert list to dict
+            coordinates = dict(itertools.izip(xrange(1, len(coordinates)+1), coordinates))
+
+#             node_id = 1
+#             for coords in coordinates():
+#                 node = nodeset.findNodeByIdentifier(node_id)
+#                 if node.isValid():
+#                     cache.setNode(node)
+#                     result = field.assignReal(cache, coords)
+#                     if not result:
+#                         raise RuntimeError("Failed to update coordinates for node %d" % node_id)
+#                 node_id += 1
+        
+        for node_id, coords in coordinates.iteritems():
+            node = nodeset.findNodeByIdentifier(node_id)
+            if node.isValid():
+                cache.setNode(node)
+                result = field.assignReal(cache, coords)
+                if not result:
+                    raise RuntimeError("Failed to update coordinates for node %d" % node_id)
     
 def nodes_to_list(nodeset, numValues=3, coordFieldName='coordinates'):
     """
@@ -443,11 +486,18 @@ def nodes_to_list(nodeset, numValues=3, coordFieldName='coordinates'):
     """
     return _nodes_to_list(nodeset, numValues, coordFieldName)
 
-def update_nodes(nodeset, node_list, coordFieldName='coordinates'):
+
+def nodes_to_dict(nodeset, numValues=3, coordFieldName='coordinates'):
     """
-    Update nodes from a list of coordinates
+    Return all nodes as a Python dict of node_id:coordinates
     """
-    _update_nodes(nodeset, node_list, Field.DOMAIN_TYPE_NODES, coordFieldName)
+    return _nodes_to_dict(nodeset, numValues, coordFieldName)
+
+def update_nodes(nodeset, coordinate_dict, coordFieldName='coordinates'):
+    """
+    Update nodes from a dict of node_id:coordinates
+    """
+    _update_nodes(nodeset, coordinate_dict, Field.DOMAIN_TYPE_NODES, coordFieldName)
 
 def data_to_list(nodeset, numValues=3, coordFieldName='data_coordinates'):
     """
@@ -455,11 +505,11 @@ def data_to_list(nodeset, numValues=3, coordFieldName='data_coordinates'):
     """
     return _nodes_to_list(nodeset, numValues, coordFieldName)
 
-def update_data(nodeset, node_list, coordFieldName='data_coordinates'):
+def update_data(nodeset, coordinate_list, coordFieldName='data_coordinates'):
     """
     Generate datapoints from a list of coordinates
     """
-    _update_nodes(nodeset, node_list, Field.DOMAIN_TYPE_NODES, coordFieldName)
+    _update_nodes(nodeset, coordinate_list, Field.DOMAIN_TYPE_NODES, coordFieldName)
 
     
 def read_txtelem(filename):
