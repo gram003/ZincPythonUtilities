@@ -19,9 +19,7 @@ from tools.utilities import get_scene, get_field_module, get_tessellation_module
 from atom.api import Atom, Typed, Int, Bool
 import numpy as np
 
-# for diagnostics
-def funcname():
-    return sys._getframe(1).f_code.co_name
+from tools.diagnostics import funcname
 
 # Hungarian notation
 # While use of this is generally frowned upon it could be useful
