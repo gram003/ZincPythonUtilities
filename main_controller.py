@@ -231,7 +231,8 @@ class MainController(object):
             displacement_penalty = 0
         else:
             displacement_penalty = float(displacement_penalty)
-        self._model.hostmesh_register_fit(displacement_penalty)
+
+        self._create_action(partial(self._model.hostmesh_register_fit, displacement_penalty))
 
 
     #
