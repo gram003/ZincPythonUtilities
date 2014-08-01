@@ -174,7 +174,6 @@ enamldef DataDockPane(DockPane):
                 hug_width = 'required'
 
 
-
 enamldef RegistrationAutoDockPane(DockPane):
     attr controller = parent.controller
     title = "Registration"
@@ -210,14 +209,7 @@ enamldef RegistrationAutoDockPane(DockPane):
                 clicked ::
                     #selectPoints.checked = False
                     controller.register_automatic(translate.checked, rotate.checked, scale.checked)
-            
-# enamldef RegistrationAutoDockPane(DockPane):
-#     attr controller = parent.controller
-#     title = "Auto Registration"
-#     Container:
-#         PushButton: auto:
-#             text = 'Register'
-#             clicked :: controller.register_automatic()
+
 
 enamldef RegistrationHostMeshDockPane(DockPane):
     attr controller = parent.controller
@@ -261,6 +253,7 @@ enamldef RegistrationHostMeshDockPane(DockPane):
             clicked ::
                 controller.register_manual(displacement_penalty.field_text())
                 #selectPoints.checked = False
+
 
 enamldef FitDockPane(DockPane):
     title = "Fit"
@@ -316,7 +309,8 @@ enamldef FitDockPane(DockPane):
                     text = 'Fit'
                     clicked :: controller.fit(arclen.field_text(), curvature.field_text())
                     tool_tip = "Fit the selected faces to the selected data"
-            
+
+
 enamldef MyToolBar(ToolBar):
     attr controller = parent.controller
     alias ag: ag
@@ -361,20 +355,7 @@ enamldef MyToolBar(ToolBar):
     Action:
         text = 'View all'
         triggered :: controller.view_all()
-#     Action:
-#         checkable = True
-#         text = 'ToolBar'
-#     Action:
-#         checkable = True
-#         text = 'Buttons'
-#     Action:
-#         separator = True
-#     Action:
-#         text = 'Project'
-#         tool_tip = text
-#     Action:
-#         text = 'Fit'
-#         tool_tip = text
+
 
 enamldef MyStatusBar(StatusBar):
     alias statusLabel: statusLabel
