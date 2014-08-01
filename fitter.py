@@ -95,12 +95,18 @@ class Fitter(object):
     def context(self):
         return self._context
     
-    def region(self):
+    def getRootRegion(self):
         return self._root_region
     
-    def setCurrentRegion(self, region):
+    def setRootRegion(self, region):
         self.observable.region = region
         self._root_region = region
+    
+    def setFitRegion(self, region):
+        self._fit_region = region
+
+    def getFitRegion(self):
+        return self._fit_region
     
     def setReferenceCoordinates(self, x):
         self._refcoords = x
@@ -144,7 +150,7 @@ class Fitter(object):
 #         scene_viewer.viewAll()
         #self.region().writeFile("junk.exregi")
         
-        self.setCurrentRegion(self._root_region)
+        self.setRootRegion(self._root_region)
         
         self.show_data(True)
         self.show_initial(False)
@@ -824,9 +830,25 @@ class Fitter(object):
         mesh.update_data(datapointset, data_list.tolist(), self._data_coords_name)
         
         return undo
+    
+    def _clear_region(self, region):
+        with get_field_module(region) as fm:
+            sData = fm.findNodesetByFieldDomainType(Field.DOMAIN_TYPE_DATAPOINTS)
+            sNodes = fm.findNodesetByFieldDomainType(Field.DOMAIN_TYPE_NODES)
+            
+            for dim in [1, 2, 3]:
+                mesh = fm.findMeshByDimension(dim)
+                mesh.destroyAllElements()
+
+            for ns in [sData, sNodes]:
+                ns.destroyAllNodes()
+                
+        
 
     def convert_to_cubic(self):
-        region_cubic = self.region().createChild("cubic_lagrange")
+        region_cubic = self.getRootRegion().findChildByName("cubic_lagrange")
+        if not region_cubic.isValid():
+            region_cubic = self.getRootRegion().createChild("cubic_lagrange")
         self._region_cubic = region_cubic
         #self.setCurrentRegion(region_cubic)
         #region_cubic.setName("cubic_lagrange")
@@ -1513,8 +1535,10 @@ class Fitter(object):
             # FIXME: log diagnostics
             raise ex
         #ctxt = self.context()
-        region = self.region().createChild("linear")
+        region = self.getRootRegion().createChild("linear")
         self._region_linear = region
+        
+        self.setFitRegion(region)
 
         self._coords_name = 'coordinates'
         self._ref_coords_name = 'reference_coordinates'
