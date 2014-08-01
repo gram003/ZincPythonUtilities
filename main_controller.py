@@ -143,30 +143,28 @@ class MainController(object):
         w = self._view.find("undo")
         w.enabled = True
 
+    def _setUndoRedoState(self):
+        w = self._view.find("undo")
+        w.enabled = len(self._undoStack) != 0
+        w = self._view.find("redo")
+        w.enabled = len(self._redoStack) != 0
 
     def undo(self):
         try:
             #command = self._undoStack.pop()
             action = self._undoStack.pop()
-            action.undo()
-            w = self._view.find("undo")
-            w.enabled = len(self._undoStack) != 0
             self._redoStack.append(action)
-            w = self._view.find("redo")
-            w.enabled = len(self._redoStack) != 0
+            action.undo()
+            self._setUndoRedoState()
         except IndexError:
             return
 
     def redo(self):
         try:
             action = self._redoStack.pop()
-            action.do()
             self._undoStack.append(action)
-            w = self._view.find("undo")
-            w.enabled = len(self._undoStack) != 0
-            self._redoStack.append(action)
-            w = self._view.find("redo")
-            w.enabled = len(self._redoStack) != 0
+            action.do()
+            self._setUndoRedoState()
         except IndexError:
             return
         
