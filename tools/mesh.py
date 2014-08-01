@@ -393,16 +393,16 @@ def linear_to_cubic(mesh_cubic, nodes, elements, tol=1e-4, **kwargs):
         cubic_lagrange_mesh(mymesh, [], cubic_elements, coordinate_field_name=coordinate_fields, merge=False)
 
 
-def _nodes_to_list(nodeset, numValues=3, coordFieldName='coordinates'):
+def _nodes_to_list(nodesetGroup, numValues=3, coordFieldName='coordinates'):
     """
     Extract nodes into a Python list
     """
-    fm = nodeset.getFieldmodule()
+    fm = nodesetGroup.getFieldmodule()
     field = fm.findFieldByName(coordFieldName)
 
     # extract the list of nodes 
     node_list = []
-    node_iter = nodeset.createNodeiterator()
+    node_iter = nodesetGroup.createNodeiterator()
     cache = fm.createFieldcache()
     count = 0
     node = node_iter.next()
@@ -415,16 +415,16 @@ def _nodes_to_list(nodeset, numValues=3, coordFieldName='coordinates'):
 
     return node_list
 
-def _nodes_to_dict(nodeset, numValues=3, coordFieldName='coordinates'):
+def _nodes_to_dict(nodesetGroup, numValues=3, coordFieldName='coordinates'):
     """
     Extract nodes into a Python list
     """
-    fm = nodeset.getFieldmodule()
+    fm = nodesetGroup.getFieldmodule()
     field = fm.findFieldByName(coordFieldName)
 
     # extract the list of nodes 
     node_dict = {}
-    node_iter = nodeset.createNodeiterator()
+    node_iter = nodesetGroup.createNodeiterator()
     cache = fm.createFieldcache()
     count = 0
     node = node_iter.next()
@@ -442,21 +442,21 @@ def _nodes_to_dict(nodeset, numValues=3, coordFieldName='coordinates'):
     return node_dict
 
 
-def _update_nodes(nodeset, coordinates, nodesetName, coordFieldName='coordinates'):
+def _update_nodes(nodesetGroup, coordinates, nodesetName, coordFieldName='coordinates'):
     """
     Update nodes with the coordinates in the given coordinates
     as a Python list or dict => node_id: coords.
     """
     
     # Update nodes with new coordinates 
-    with get_field_module(nodeset) as fm:
+    with get_field_module(nodesetGroup) as fm:
         field = fm.findFieldByName(coordFieldName)
         cache = fm.createFieldcache()
         
-        num_nodes = nodeset.getSize()
+        num_nodes = nodesetGroup.getSize()
         if isinstance(coordinates, list):
             if num_nodes < len(coordinates):
-                raise RuntimeError("Update list may not have more values than nodeset. Got %d nodeset has %d."
+                raise RuntimeError("Update list may not have more values than nodesetGroup. Got %d nodesetGroup has %d."
                                    % (len(coordinates), num_nodes))
             
             # convert list to dict
@@ -464,7 +464,7 @@ def _update_nodes(nodeset, coordinates, nodesetName, coordFieldName='coordinates
 
 #             node_id = 1
 #             for coords in coordinates():
-#                 node = nodeset.findNodeByIdentifier(node_id)
+#                 node = nodesetGroup.findNodeByIdentifier(node_id)
 #                 if node.isValid():
 #                     cache.setNode(node)
 #                     result = field.assignReal(cache, coords)
@@ -473,43 +473,43 @@ def _update_nodes(nodeset, coordinates, nodesetName, coordFieldName='coordinates
 #                 node_id += 1
         
         for node_id, coords in coordinates.iteritems():
-            node = nodeset.findNodeByIdentifier(node_id)
+            node = nodesetGroup.findNodeByIdentifier(node_id)
             if node.isValid():
                 cache.setNode(node)
                 result = field.assignReal(cache, coords)
                 if not result:
                     raise RuntimeError("Failed to update coordinates for node %d" % node_id)
     
-def nodes_to_list(nodeset, numValues=3, coordFieldName='coordinates'):
+def nodes_to_list(nodesetGroup, numValues=3, coordFieldName='coordinates'):
     """
     Return all nodes as a Python list
     """
-    return _nodes_to_list(nodeset, numValues, coordFieldName)
+    return _nodes_to_list(nodesetGroup, numValues, coordFieldName)
 
 
-def nodes_to_dict(nodeset, numValues=3, coordFieldName='coordinates'):
+def nodes_to_dict(nodesetGroup, numValues=3, coordFieldName='coordinates'):
     """
     Return all nodes as a Python dict of node_id:coordinates
     """
-    return _nodes_to_dict(nodeset, numValues, coordFieldName)
+    return _nodes_to_dict(nodesetGroup, numValues, coordFieldName)
 
-def update_nodes(nodeset, coordinate_dict, coordFieldName='coordinates'):
+def update_nodes(nodesetGroup, coordinate_dict, coordFieldName='coordinates'):
     """
     Update nodes from a dict of node_id:coordinates
     """
-    _update_nodes(nodeset, coordinate_dict, Field.DOMAIN_TYPE_NODES, coordFieldName)
+    _update_nodes(nodesetGroup, coordinate_dict, Field.DOMAIN_TYPE_NODES, coordFieldName)
 
-def data_to_list(nodeset, numValues=3, coordFieldName='data_coordinates'):
+def data_to_list(nodesetGroup, numValues=3, coordFieldName='data_coordinates'):
     """
     Return all datapoints as a Python list
     """
-    return _nodes_to_list(nodeset, numValues, coordFieldName)
+    return _nodes_to_list(nodesetGroup, numValues, coordFieldName)
 
-def update_data(nodeset, coordinate_list, coordFieldName='data_coordinates'):
+def update_data(nodesetGroup, coordinate_list, coordFieldName='data_coordinates'):
     """
     Generate datapoints from a list of coordinates
     """
-    _update_nodes(nodeset, coordinate_list, Field.DOMAIN_TYPE_NODES, coordFieldName)
+    _update_nodes(nodesetGroup, coordinate_list, Field.DOMAIN_TYPE_NODES, coordFieldName)
 
     
 def read_txtelem(filename):
