@@ -473,13 +473,19 @@ class Fitter(object):
 
     def hostmesh_register_setup(self):
         """
-        Given a list of fiducial marker nodes and a list of target datapoints
+        Sets up the fields and graphics required for a host mesh registration
+        (HMR) problem and puts Fitter into a mode where it is expecting nodes and
+        datapoints to be defined. As each pair of nodes or datapoints is defined 
+
+        HMR uses a list of fiducial marker nodes and a list of target datapoints
         host mesh fit the nodes to the data.
         This works by creating a (fiducial) marker field in the datapoints
         nodeset corresponding to the target datapoints and then copying the
         node coordinates to this marker field. The marker field is then used
         to do the optimisation. It is done this way because of the way that
         the optimiser works.
+        
+        
         """
         self.observable.hmfProblemDefined = False
         self._region_hmf = self._region_linear
@@ -494,11 +500,9 @@ class Fitter(object):
         _testing = True
         #_testing = False
         # for testing specify the nodes so that we don't have to select them each time
-        if _testing:
-#             nodes = [9, 39, 89, 25, 90, 129]
-#             datapoints = [160, 549, 112, 19, 428, 274]
-            nodes = [73, 61, 89, 27, 114, 131, 83, 39]
-            datapoints = [1505, 132, 2039, 2057, 2400, 2145, 1747, 1178]
+#         if _testing:
+#             nodes = [73, 61, 89, 27, 114, 131, 83, 39]
+#             datapoints = [1505, 132, 2039, 2057, 2400, 2145, 1747, 1178]
         #nodes = [73, 2, 89, 61]
         #datapoints = [442, 1431, 310, 2266]
         
