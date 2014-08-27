@@ -264,7 +264,8 @@ class MainController(object):
             alpha = 0
         if len(beta) == 0:
             beta = 0
-        self._model.fit(float(alpha), float(beta))
+        #self._model.fit(float(alpha), float(beta))
+        self._create_action(partial(self._model.fit, float(alpha), float(beta)))
         
     #
     # Signals
