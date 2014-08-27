@@ -917,7 +917,7 @@ class Fitter(object):
 
     def storeSelectedFaces(self):
         self._selectedFaces = []
-        region = self._region_cubic
+        region = self.getFitRegion()
         with get_field_module(region) as fm:
             mesh2d = fm.findMeshByDimension(2)
 
@@ -984,7 +984,8 @@ class Fitter(object):
 #         self._createGraphics(root_region)
 
         # Create a face group
-        region = self._region_cubic # need to convert to cubic first
+        #region = self._region_cubic # need to convert to cubic first
+        region = self.getFitRegion()
         with get_field_module(region) as fm:
             mesh2d = fm.findMeshByDimension(2)
             self._mesh2d = mesh2d
@@ -1729,7 +1730,7 @@ class Fitter(object):
         # There are 2 parts to this: one is the fields and data, the
         # other is the visualisation
         # How do we save the visualisation?
-        self.region().writeFile(str(path))
+        self.getRootRegion().writeFile(str(path))
 
         # extract nodes and datapoints as text
         # extract elements as text
