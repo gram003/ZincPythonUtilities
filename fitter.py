@@ -1259,7 +1259,7 @@ class Fitter(object):
         attr.setScaleFactors([-1, 0, 0])
         
     def fit(self, alpha=0, beta=0):
-        region = self._region_cubic
+        region = self.getFitRegion()
         region.writeFile("before.exregi")
         
 #         self._defineOptimisationFields(root_region)
@@ -1269,6 +1269,16 @@ class Fitter(object):
 #         objective field.
 #         '''
         with get_field_module(region) as fm:
+            
+            # Create the undo function
+            gsModel, gmModel = self._getModelGroups(fm)
+            undoFitted = self.create_fitted_nodes_undo(gsModel)
+            undoReference = self.create_reference_nodes_undo(gsModel)
+
+            def undo():
+                undoFitted()
+                undoReference()
+            
             # self._projected_coordinates = fm.createFieldEmbedded(self._coordinates, self._stored_location)
             # self._error_vector = fm.createFieldSubtract(self._projected_coordinates, self._data_coordinates)
             data_nodeset_group = self._gnfData.getNodesetGroup()
@@ -1507,6 +1517,8 @@ class Fitter(object):
 #                 dp = dp_iter.next()
                 
             region.writeFile("after.exregi")
+            
+            return undo
 
 
 #     def _setGraphicsCoordinates(self, coordinate_field):
