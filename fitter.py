@@ -133,7 +133,7 @@ class Fitter(object):
     def setPointSize(self, size):
         self._pointSize = size
         
-    def meshLoaded(self):
+    def _problemLoaded(self):
 #         fm = self._region_linear.getFieldmodule()
 
 #         self._coordinates = fm.findFieldByName('coordinates')
@@ -1646,7 +1646,7 @@ class Fitter(object):
 
         self._initial_graphics_ref = self._create_graphics_mesh(region, self._ref_coords_name, colour="green", sub_group_field=gfModel)
         
-        self.meshLoaded()
+        self._problemLoaded()
         
     def _create_graphics_data(self, region, coords_field, **kwargs):
         mygraphics = graphics.createDatapointGraphics(region, datapoints_name='data', datapoints_size=self._pointSize)
