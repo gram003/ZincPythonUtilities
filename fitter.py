@@ -365,9 +365,9 @@ class Fitter(object):
         
         return gsHost, gmHost
     
-    def _getModelGroups(self, fm):
+    def _getModelGroups(self, fm, name):
         # Get the model nodeset and mesh groups
-        gfModel = fm.findFieldByName('model').castGroup()
+        gfModel = fm.findFieldByName(name).castGroup()
         assert(gfModel.isValid())
         sNodes = fm.findNodesetByFieldDomainType(Field.DOMAIN_TYPE_NODES)
         gsModel = gfModel.getFieldNodeGroup(sNodes).getNodesetGroup()
@@ -696,7 +696,7 @@ class Fitter(object):
         with get_field_module(self._region_linear) as fm:
 
             # Create the undo function
-            gsModel, gmModel = self._getModelGroups(fm)
+            gsModel, gmModel = self._getModelGroups(fm, 'model')
             undoFitted = self.create_fitted_nodes_undo(gsModel)
             undoReference = self.create_reference_nodes_undo(gsModel)
             gsHost, gmHost = self._getHostGroups(fm)
@@ -899,17 +899,24 @@ class Fitter(object):
             nodeset = fm.findNodesetByFieldDomainType(Field.DOMAIN_TYPE_NODES)
             nodes = mesh.nodes_to_list(nodeset)
             
-            mesh_cubic = fmc.findMeshByDimension(3)
-            
-            mesh.linear_to_cubic(mesh_cubic, nodes, self._elements_linear,
+            gfModel = fmc.createFieldGroup()
+            gfModel.setSubelementHandlingMode(FieldGroup.SUBELEMENT_HANDLING_MODE_FULL)
+            gfModel.setManaged(True) # prevent group from being destroyed when not in use
+            gfModel.setName('model')
+
+            meshModel = fmc.findMeshByDimension(3) # FIXME: this dimension should be configurable
+            modelElemGroup = gfModel.createFieldElementGroup(meshModel)
+            meshGroup = modelElemGroup.getMeshGroup()
+                        
+            mesh.linear_to_cubic(meshGroup, nodes, self._elements_linear,
                                  coordinate_field_name=[self._coords_name, self._ref_coords_name])
             
             # copy the data to the cubic region for fitting
             datapointset = fm.findNodesetByFieldDomainType(Field.DOMAIN_TYPE_DATAPOINTS)
             data = mesh.data_to_list(datapointset, 3)
-            with get_field_module(region_cubic) as fmc:
-                datapointset_cubic = fmc.findNodesetByFieldDomainType(Field.DOMAIN_TYPE_DATAPOINTS)
-                mesh.define_datapoints(datapointset_cubic, data)
+
+            datapointset_cubic = fmc.findNodesetByFieldDomainType(Field.DOMAIN_TYPE_DATAPOINTS)
+            mesh.define_datapoints(datapointset_cubic, data)
         
         self._cubic_graphics = self._create_graphics_mesh(region_cubic, self._coords_name, colour='bone', exterior=True)
         
@@ -1005,7 +1012,6 @@ class Fitter(object):
                 self._gfFaces.clear()
             else:
                 self._gfFaces = fm.createFieldGroup()
-                self._gfFaces.setManaged(True)
                 self._gfFaces.setSubelementHandlingMode(FieldGroup.SUBELEMENT_HANDLING_MODE_FULL)
                 self._gfFaces.setManaged(True) # prevent group from being destroyed when not in use
                 self._gfFaces.setName(faceGroupName)
