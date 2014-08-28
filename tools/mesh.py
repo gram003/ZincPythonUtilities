@@ -114,7 +114,7 @@ def _find_mesh_dimension(basis_order, element_set):
 def _lagrange_mesh(mymesh, basis_order, node_coordinate_set, element_set, **kwargs):
     '''
     Create linear finite elements given node and element lists
-    param: mesh a mesh or meshGroup
+    param: mymesh a mesh or meshGroup
     param: order order of Lagrange interpolation 1 = linear, 2 = quadratic, 3 = cubic
     '''
     # Parse kwargs    
@@ -253,7 +253,7 @@ def generate_xi_locations(xi, ndim):
     return coords
 
 
-def linear_to_cubic(mesh_cubic, nodes, elements, tol=1e-4, **kwargs):
+def linear_to_cubic(mesh_group_cubic, nodes, elements, tol=1e-4, **kwargs):
     """
     Convert a 3D linear mesh to cubic Lagrange 
     """
@@ -283,7 +283,7 @@ def linear_to_cubic(mesh_cubic, nodes, elements, tol=1e-4, **kwargs):
         coordinate_fields = [coordinate_field_name] 
 
     #merge = kwargs.get('merge', False)
-    region_cubic = mesh_cubic.getFieldmodule().getRegion()
+    region_cubic = mesh_group_cubic.getFieldmodule().getRegion()
     
     # Create a linear mesh in a temporary region for interpolating the nodal positions
     region_linear = region_cubic.createChild("temporary")
@@ -388,9 +388,8 @@ def linear_to_cubic(mesh_cubic, nodes, elements, tol=1e-4, **kwargs):
 
         region_cubic.removeChild(region_linear)
 
-        # The nodes have already been added to the region so use these existing nodes
-        mymesh = fm.findMeshByDimension(dimension)
-        cubic_lagrange_mesh(mymesh, [], cubic_elements, coordinate_field_name=coordinate_fields, merge=False)
+        # The nodes have already been added to the meshgroup so use these existing nodes
+        cubic_lagrange_mesh(mesh_group_cubic, [], cubic_elements, coordinate_field_name=coordinate_fields, merge=False)
 
 
 def _nodes_to_list(nodesetGroup, numValues=3, coordFieldName='coordinates'):
