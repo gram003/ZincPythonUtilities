@@ -97,7 +97,7 @@ _basis_type_map = {1: Elementbasis.FUNCTION_TYPE_LINEAR_LAGRANGE,
 # findNodeByIdentifier
 # node.merge(template)
 
-def _find_mesh_dimension(basis_order, element_set):
+def find_mesh_dimension(basis_order, element_set):
     """
     Work out the dimension of the mesh by the number of nodes in the first element
     """
@@ -150,7 +150,7 @@ def _lagrange_mesh(mymesh, basis_order, node_coordinate_set, element_set, **kwar
         # Create and configure an element template for the appropriate mesh type.
         element_node_count = len(element_set[0])
 
-        dimension = _find_mesh_dimension(basis_order, element_set)
+        dimension = find_mesh_dimension(basis_order, element_set)
         assert(dimension == mymesh.getDimension())
 
         #mesh = fm.findMeshByDimension(dimension)
@@ -287,7 +287,7 @@ def linear_to_cubic(mesh_group_cubic, nodes, elements, tol=1e-4, **kwargs):
     
     # Create a linear mesh in a temporary region for interpolating the nodal positions
     region_linear = region_cubic.createChild("temporary")
-    dimension = _find_mesh_dimension(basis_order=1, element_set=elements)
+    dimension = find_mesh_dimension(basis_order=1, element_set=elements)
     
     with get_field_module(region_linear) as fm:
         mymesh = fm.findMeshByDimension(dimension)
