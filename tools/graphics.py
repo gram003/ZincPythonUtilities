@@ -49,8 +49,10 @@ def createDatapointGraphics(region, **kwargs):
         mat = materials_module.findMaterialByName(colour)
     
         field_module = region.getFieldmodule()
+
+        coordinate_field_name = kwargs.get('coordinate_field_name', 'data_coordinates')
                     
-        data_coordinates = field_module.findFieldByName('data_coordinates')
+        data_coordinates = field_module.findFieldByName(coordinate_field_name)
         diamonds = scene.createGraphicsPoints()
         diamonds.setCoordinateField(data_coordinates)
         diamonds.setFieldDomainType(Field.DOMAIN_TYPE_DATAPOINTS)
@@ -85,10 +87,7 @@ def createNodeGraphics(region, **kwargs):
     # Get the scene for the default region to create the visualisation in.
     with get_scene(region) as scene:
 
-        if 'coordinate_field_name' in kwargs:
-            coordinate_field_name = kwargs['coordinate_field_name']
-        else:
-            coordinate_field_name = 'coordinates'
+        coordinate_field_name = kwargs.get('coordinate_field_name', 'coordinates')
         finite_element_field = field_module.findFieldByName(coordinate_field_name)
     
         colour = kwargs.get('colour', 'white')
@@ -148,11 +147,7 @@ def createLineGraphics(region, **kwargs):
 
     with get_scene(region) as scene:
 
-        # createSurfaceGraphic graphic start
-        if 'coordinate_field_name' in kwargs:
-            coordinate_field_name = kwargs['coordinate_field_name']
-        else:
-            coordinate_field_name = 'coordinates'
+        coordinate_field_name = kwargs.get('coordinate_field_name', 'coordinates')
         finite_element_field = field_module.findFieldByName(coordinate_field_name)
 
         colour = kwargs.get('colour', 'white')
@@ -194,11 +189,7 @@ def createSurfaceGraphics(region, **kwargs):
 
     with get_scene(region) as scene:
 
-        # createSurfaceGraphic graphic start
-        if 'coordinate_field_name' in kwargs:
-            coordinate_field_name = kwargs['coordinate_field_name']
-        else:
-            coordinate_field_name = 'coordinates'
+        coordinate_field_name = kwargs.get('coordinate_field_name', 'coordinates')
         finite_element_field = field_module.findFieldByName(coordinate_field_name)
 
         colour = kwargs.get('colour', 'white')
