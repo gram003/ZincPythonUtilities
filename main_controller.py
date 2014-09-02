@@ -31,8 +31,11 @@ class MainController(object):
         Constructor
         '''
         #self._model = model
+        # FIXME: the undo/redo stack could be split into a seperate class
         self._undoStack = list()
         self._redoStack = list()
+        
+        self._projectFilePath = None
         
         
     # The model can't be passed to the constructor because of the
@@ -51,42 +54,46 @@ class MainController(object):
         
         self._zw.graphicsPicked.connect(self._on_graphics_selected)
 
-        if __debug__:
+        if __debug__ and False:
             import os
             os.chdir("test")
             self._model.setPointSize(1) # this should be in the json
-            self.open_file("abi_femur.json")
+            self.open_project("abi_femur.json")
 #             self.open_file("test_2d_fit.json")
             os.chdir("..")
-
+   
             # for testing register the mesh to the mirrored the data 
             #f = self._model
             self.data_mirror('y') # mirror in y axis
             self.register_automatic(translate=True, rotate=False, scale=False)
             self.register_automatic(translate=True, rotate=True, scale=False)
             self._zw.viewAll()
-            
+               
             # convert to cubic
-#            self.convert_to_cubic()
+            self.convert_to_cubic()
             # hide initial mesh via UI
-            
+               
             #self._view.mb.data_view.checked = False
             for name in [
-                         #'view_data',
-                         #'view_reference', 'view_fitted',
-                         'cubic_data', 'cubic_reference', 'cubic_reference']:
+                         'view_data',
+                         'view_reference',
+                         'view_fitted',
+                         #'cubic_data',
+                         #'cubic_fitted',
+                         'cubic_reference'
+                         ]:
                 vobj = self._view.find(name)
                 vobj.checked = False
                 vobj.triggered()
-            
-            
+             
+             
 #             self.view_data_cubic(True)
 #             self.view_reference_cubic(False)
 #             self.view_fitted_cubic(True)
 #             
 #             self.project()
 #             self.fit()
-            
+             
 #             self.convert_to_cubic()
 #             self.open_file("test_2d_fit.json")
 #             # hide initial mesh
@@ -110,24 +117,41 @@ class MainController(object):
     #
     # File Menu
     #
+
+    def new_project(self, path):
+        # FIXME: save an existing project
+        if __debug__:
+            print "new project", path
+        self._model.new_project(path)
     
-    def open_file(self, path):
-        print path
-        self._model.load_problem(path)
+    def open_project(self, path):
+        if __debug__:
+            print "opening project", path
+        self._model.load_project(path)
+        self.view_all()
+
+    # FIXME: these could be in a separate class        
+    def import_nodes(self, path):
+        if __debug__:
+            print "importing", path
+        self._model.import_nodes(path)
+        self.view_all()
+    
+    def import_elements(self, path):
+        if __debug__:
+            print "importing", path
+        self._model.import_elements(path)
+        self.view_all()
+
+    def import_data(self, path):
+        if __debug__:
+            print "importing", path
+        self._model.import_data(path)
         self.view_all()
         
-    def load_nodes(self, path):
-        print funcname()
-
-    def load_elements(self, path):
-        print funcname()
-
-    def load_data(self, path):
-        print funcname()
-        
-    def save_file(self, path):
+    def save_project(self, path):
         print funcname(), path
-        self._model.save_problem(path)
+        self._model.save_project(path)
 
     #
     # Edit menu
@@ -259,13 +283,15 @@ class MainController(object):
     def project(self):
         self._model.project()
 
-    def fit(self, alpha, beta):
-        if len(alpha) == 0:
-            alpha = 0
-        if len(beta) == 0:
-            beta = 0
+    def fit(self, **kwargs):
+        for k,v in kwargs.iteritems():
+            print k, v
+            if len(v) == 0:
+                kwargs[k] = 0.0
+            else:
+                kwargs[k] = float(v)
         #self._model.fit(float(alpha), float(beta))
-        self._create_action(partial(self._model.fit, float(alpha), float(beta)))
+        self._create_action(partial(self._model.fit, **kwargs))
         
     #
     # Signals
