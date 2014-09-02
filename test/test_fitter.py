@@ -12,11 +12,12 @@ import unittest
 from fitter import Fitter
 from opencmiss.zinc.context import Context
 from opencmiss.zinc.field import Field
+from tools.utilities import get_scene, get_field_module
 
 import tools.mesh as mesh
 import numpy as np
 
-class Test(unittest.TestCase):
+class TestFitter(unittest.TestCase):
 
     def setUp(self):
         self.context = Context("TestContext")
@@ -52,7 +53,7 @@ class Test(unittest.TestCase):
         self.assertFalse(np.allclose(a,b), "Initial and registered arrays are equal")
         
 
-    @unittest.skip("")
+    #@unittest.skip("")
     def testMirror(self):
         f = self.fitter
         f.load_problem("abi_femur.json")
@@ -74,7 +75,7 @@ class Test(unittest.TestCase):
         print b
         self.assertFalse(np.allclose(a,b), "Initial and mirrored arrays are equal")
 
-    @unittest.skip("")
+    #@unittest.skip("")
     def testConvertToCubic(self):
         f = self.fitter
         path = "test_2d_fit.json"
@@ -85,11 +86,19 @@ class Test(unittest.TestCase):
         
         # FIXME: how to know that it worked? It didn't throw an exception?
         
-    @unittest.skip("")
+    #@unittest.skip("")
     def testCreateHostMesh(self):
         f = self.fitter
         f.load_problem("abi_femur.json")
-        f.createBoundingBoxMesh(f._region_linear, "coordinates")
+        
+        with get_field_module(f._region_linear) as fm:
+            sNodes = fm.findNodesetByFieldDomainType(Field.DOMAIN_TYPE_NODES)
+            gfModel = fm.findFieldByName('model').castGroup()
+            assert(gfModel.isValid())
+            gsModel = gfModel.getFieldNodeGroup(sNodes).getNodesetGroup()
+            assert(gsModel.isValid())
+
+            f._createBoundingBoxMesh(gsModel, "coordinates")
         
         
 
