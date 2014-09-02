@@ -1391,27 +1391,27 @@ class Fitter(object):
            
             print "number of faces in fit =", gmFaces.getSize()
  
-            # create an arc length penalty objective function                 = fm.createFieldMultiply(weight, area)
+            # create an arc length penalty objective function
 
-            if alpha > 0:
-                print "alpha =", alpha 
+            if arclen > 0:
+                # This doesn't work, is causes the problem to not converge
+                
+                print "alpha =", arclen 
                 du_dx = [fm.createFieldDerivative(coords, 1),
                          fm.createFieldDerivative(coords, 2)]
                 du_dx_cat = fm.createFieldConcatenate(du_dx)
                  
-                weight = fm.createFieldConstant(alpha)
-
 #                 sumsq = fm.createFieldNodesetSumSquares(du_dx_cat, gsFaces)
 #                 weighted = fm.createFieldMultiply(const, sumsq)
 #                 self._line_arc_length_objective = fm.createFieldMeshIntegral(weighted, coords, gmFaces)#mesh2d)
  
                 integralSquares = fm.createFieldMeshIntegralSquares(du_dx_cat, ref_coords, gmFaces)
                 integralSquares.setNumbersOfPoints([4])
+                weight = fm.createFieldConstant(arclen)
                 line_arc_length_objective = fm.createFieldMultiply(weight, integralSquares)
                 
                 self._opt.addObjectiveField(line_arc_length_objective)
                 
-
 #                 const = fm.createFieldConstant(1)
 #                 weight = fm.createFieldConstant(alpha)
 #                 
@@ -1429,10 +1429,56 @@ class Fitter(object):
 #                 face_area_objective = fm.createFieldSubtract(area, ref_area)
 #                 self._opt.addObjectiveField(face_area_objective)
                 
-                
+            if strain > 0:
+                # Try a strain penalty
+                # u = x - X
+#                 u = fm.createFieldSubtract(coords, ref_coords)
+#                 # du_dxi1 = field derivative (u, 1)
+#                 du_dxi1 = fm.createFieldDerivative(u, 1)
+#                 du_dxi2 = fm.createFieldDerivative(u, 2)
+#                 FT = fm.createFieldConcatenate([du_dxi1, du_dxi2])
+#                 F = fm.createFieldTranspose(2, FT)
+#                 E = fm.createFieldMatrixMultiply(2, FT, F
+#
+#                 weight = fm.createFieldConstant(beta)
+#                 weighted = fm.createFieldMultiply(E, weight)
+#                     
+#                 strain_objective = fm.createFieldMeshIntegral(weighted, ref_coords, gmFaces)
+#                 strain_objective.setNumbersOfPoints([4])
+#                 self._opt.addObjectiveField(strain_objective)
 
-            if beta > 0:
-                print "beta =", beta 
+                # a different strain penalty
+                F = fm.createFieldGradient(coords, ref_coords)
+                FT = fm.createFieldTranspose(3, F)
+                   
+                C = fm.createFieldMatrixMultiply(3, FT, F)
+                weight = fm.createFieldConstant(strain*0.5)
+                I = fm.createFieldConstant([1, 0, 0, 0, 1, 0, 0, 0, 1])
+                #half = fm.createFieldConstant(0.5) # included in weight
+                CmI = fm.createFieldSubtract(C, I)
+                E = fm.createFieldMultiply(CmI, weight)
+                     
+                strain_objective = fm.createFieldMeshIntegralSquares(E, ref_coords, gmFaces)
+                strain_objective.setNumbersOfPoints([4])
+                self._opt.addObjectiveField(strain_objective)
+                
+            # Edge continuity smoothing
+            if edge > 0:
+                print "edge =", edge 
+                #isExteriorField = fm.createFieldIsExterior()
+                # edge = fm.createFieldEdgeDiscontinuity(coords, isExteriorField)
+                edge_dis = fm.createFieldEdgeDiscontinuity(coords, self._gfFaces)
+                edge_dis.setManaged(True)
+                
+                weight = fm.createFieldConstant(edge)
+                weighted = fm.createFieldMultiply(edge_dis, weight)
+                     
+                edge_objective = fm.createFieldMeshIntegralSquares(weighted, coords, gmLines)
+                edge_objective.setNumbersOfPoints([3]) # 4 doesn't work
+                self._opt.addObjectiveField(edge_objective)
+                
+                self._createEdgeDiscontinuityVisualisation(fm.getRegion(), edge_dis)
+                
 #                 ref_coords = fm.findFieldByName('reference_coordinates')                 
 #                 displacement = fm.createFieldSubtract(coords, ref_coords)
 #     
@@ -1466,43 +1512,12 @@ class Fitter(object):
 #                 weighted = fm.createFieldMultiply(const, sumsq)
 #                 self._curvature_objective = fm.createFieldMeshIntegral(weighted, coords, mesh2d)
 #                 self._opt.addObjectiveField(self._curvature_objective)
-                
-                # Try a strain penalty
-                # u = x - X
-#                 u = fm.createFieldSubtract(coords, ref_coords)
-#                 # du_dxi1 = field derivative (u, 1)
-#                 du_dxi1 = fm.createFieldDerivative(u, 1)
-#                 du_dxi2 = fm.createFieldDerivative(u, 2)
-#                 FT = fm.createFieldConcatenate([du_dxi1, du_dxi2])
-#                 F = fm.createFieldTranspose(2, FT)
-#                 E = fm.createFieldMatrixMultiply(2, FT, F)
-#                                     
-#                 weight = fm.createFieldConstant(beta)
-#                 weighted = fm.createFieldMultiply(E, weight)
-#                     
-#                 strain_objective = fm.createFieldMeshIntegral(weighted, ref_coords, gmFaces)
-#                 strain_objective.setNumbersOfPoints([4])
-#                 self._opt.addObjectiveField(strain_objective)
 
-                F = fm.createFieldGradient(coords, ref_coords)
-                FT = fm.createFieldTranspose(3, F)
-                  
-                C = fm.createFieldMatrixMultiply(3, FT, F)
-                weight = fm.createFieldConstant(beta*0.5)
-                I = fm.createFieldConstant([1, 0, 0, 0, 1, 0, 0, 0, 1])
-                #half = fm.createFieldConstant(0.5) # included in weight
-                CmI = fm.createFieldSubtract(C, I)
-                E = fm.createFieldMultiply(CmI, weight)
-                    
-                strain_objective = fm.createFieldMeshIntegral(E, ref_coords, gmFaces)
-                strain_objective.setNumbersOfPoints([4])
-                self._opt.addObjectiveField(strain_objective)
-                
 
             self._opt.addIndependentField(coords)
             self._opt.setConditionalField(coords, gnfFaces)
             
-            self._opt.setAttributeInteger(Optimisation.ATTRIBUTE_MAXIMUM_ITERATIONS, 200)
+            self._opt.setAttributeInteger(Optimisation.ATTRIBUTE_MAXIMUM_ITERATIONS, 50)
              
             import time
             start = time.time()
