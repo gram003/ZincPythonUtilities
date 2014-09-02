@@ -13,7 +13,7 @@ def _coordinate_field(nodeset,
                       coordinate_set,
                       coordinate_field_name=['coordinates'],
                       merge=False,
-                      start_node_id=False):
+                      start_node_id=1):
     '''
     Create a coordinate field given a coordinate list.
     param: region the region
