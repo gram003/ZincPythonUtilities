@@ -1546,6 +1546,40 @@ class Fitter(object):
             
             return undo
 
+    def _createEdgeDiscontinuityVisualisation(self, region, ed):
+
+        scene = region.getScene()
+        graphicsName = "edge_discontinuity"
+        # only create if we don't already have them
+        existingGraphics = scene.findGraphicsByName(graphicsName)
+        if existingGraphics.isValid():
+            return
+
+        field_module = region.getFieldmodule()
+        scene.beginChange()
+        # create points at nodes shown with gold spheres
+        points = scene.createGraphicsPoints()
+        points.setName(graphicsName)
+    
+        coordinate_field = field_module.findFieldByName('coordinates')
+#         is_exterior_field = field_module.createFieldIsExterior()
+#         ed = field_module.createFieldEdgeDiscontinuity(coordinate_field, is_exterior_field)
+#         ed.setManaged(True)
+
+        points.setFieldDomainType(Field.DOMAIN_TYPE_MESH1D) # show points on lines
+        #points.setFieldDomainType(Field.DOMAIN_TYPE_NODES) # show points on nodes
+        points.setExterior(True)
+        points.setCoordinateField(coordinate_field)
+        pointattr = points.getGraphicspointattributes()
+        pointattr.setGlyphShapeType(Glyph.SHAPE_TYPE_ARROW_SOLID)
+        pointattr.setBaseSize([0.0,1.0,1.0])
+        pointattr.setScaleFactors([-1.0,0.0,0.0])
+        pointattr.setOrientationScaleField(ed)
+        material = scene.getMaterialmodule().findMaterialByName("red")
+        points.setMaterial(material)
+        scene.endChange()
+
+
 
 #     def _setGraphicsCoordinates(self, coordinate_field):
 #         with get_scene(self.context().getDefaultRegion()) as scene:
