@@ -15,6 +15,7 @@ from opencmiss.zinc.status import OK
 import tools.mesh as mesh
 import tools.graphics as graphics
 from tools.utilities import get_scene, get_field_module, get_tessellation_module
+from fit_project import FitProject
 
 from atom.api import Atom, Typed, Int, Bool
 import numpy as np
@@ -68,6 +69,10 @@ class Fitter(object):
         self.observable.selectMode = self.SelectModeNone
         self.observable.hmfProblemDefined = False
 
+        self._coords_name = 'coordinates'
+        self._ref_coords_name = 'reference_coordinates'
+        self._data_coords_name = 'data_coordinates'
+
         self._projected_coordinates = None
         self._error_vector = None
         self._graphicsProjectedPoints = None
@@ -107,6 +112,13 @@ class Fitter(object):
 
     def getFitRegion(self):
         return self._fit_region
+    
+    def getRegionByName(self, name):
+        region = self.getRootRegion().findChildByName(name)
+        if not region.isValid:
+            region = self.getRootRegion().createChild(name)
+            
+        return region
     
     def setReferenceCoordinates(self, x):
         self._refcoords = x
@@ -908,7 +920,7 @@ class Fitter(object):
             modelElemGroup = gfModel.createFieldElementGroup(meshModel)
             meshGroup = modelElemGroup.getMeshGroup()
                         
-            mesh.linear_to_cubic(meshGroup, nodes, self._elements_linear,
+            mesh.linear_to_cubic(meshGroup, nodes, self._project._elements,
                                  coordinate_field_name=[self._coords_name, self._ref_coords_name])
             
             # copy the data to the cubic region for fitting
@@ -920,9 +932,11 @@ class Fitter(object):
         
         self._cubic_graphics = self._create_graphics_mesh(region_cubic, self._coords_name, colour='bone', exterior=True)
         
-        #self._cubic_graphics_ref = self._create_graphics_mesh(region_cubic, self._ref_coords_name, colour='blue')
+        self._cubic_graphics_ref = self._create_graphics_mesh(region_cubic, self._ref_coords_name, colour='blue')
 
         self._cubic_graphics_data = self._create_graphics_data(region_cubic, self._data_coords_name)
+        
+        self.getFitRegion().writeFile("cubic_0.exregi")
         
         return undo
 
@@ -984,6 +998,9 @@ class Fitter(object):
 #                 count += 1
 #             if __debug__: print
         
+    def _fit_projection_setup(self):
+        pass
+        
 
     def project(self):
         # project selected data points onto selected faces
@@ -1000,7 +1017,7 @@ class Fitter(object):
         with get_field_module(region) as fm:
             mesh2d = fm.findMeshByDimension(2)
             self._mesh2d = mesh2d
-            sNodes = fm.findNodesetByFieldDomainType(Field.DOMAIN_TYPE_NODES)
+            #sNodes = fm.findNodesetByFieldDomainType(Field.DOMAIN_TYPE_NODES)
             # m2 = mesh2d # should use m2 as the Hungarian prefix
 #             try:
 #                 self._gfFaces
@@ -1012,16 +1029,21 @@ class Fitter(object):
                 self._gfFaces.clear()
             else:
                 self._gfFaces = fm.createFieldGroup()
+                # temporarily disabled for debugging
                 self._gfFaces.setSubelementHandlingMode(FieldGroup.SUBELEMENT_HANDLING_MODE_FULL)
                 self._gfFaces.setManaged(True) # prevent group from being destroyed when not in use
                 self._gfFaces.setName(faceGroupName)
 
-            self._gefFaces = self._gfFaces.createFieldElementGroup(mesh2d)
+            self._gefFaces = self._gfFaces.getFieldElementGroup(mesh2d)
 
-            if __debug__: print "self._gefFaces", self._gefFaces
+            if not self._gefFaces.isValid():
+                self._gefFaces = self._gfFaces.createFieldElementGroup(mesh2d)
             
             gmFaces = self._gefFaces.getMeshGroup()
-            #if __debug__: print "gmFaces", gmFaces 
+            gmFaces2 = self._gefFaces.getMeshGroup()
+            if __debug__:
+                print "gmFaces.isValid()", gmFaces.isValid() 
+                print "gmFaces2.isValid()", gmFaces2.isValid() 
             #gmFaces.removeAllElements()
     
             # outsideFaceIds = [3, 8, 13, 18, 23, 27]
@@ -1051,15 +1073,30 @@ class Fitter(object):
                     count += 1
                 if __debug__: print
             
+            # diagnostics
+            print "elements in gmFaces"
+            el_iter = gmFaces.createElementiterator()
+            element = el_iter.next()
+            while element.isValid():
+                elem_id = element.getIdentifier()
+                if __debug__: print elem_id,
+                element = el_iter.next()
+            if __debug__: print
+
             # for developing just use a few faces
             if count == 0:
                 #elist = [int(x) for x in "34 77 158".split()] # linear
                 #elist = [int(x) for x in "29 34 188 192".split()] # cubic proximal femur
                 elist = [int(x) for x in "34 77 106 148 158 160 192 223 244 265 286 300".split()] # proximal hemisphere
+                #elist = [int(x) for x in "158 160 223 244".split()]
+                
                 #elist = [158]
                 #elist = [int(x) for x in "1".split()] # 2d cubic example
                 for eindex in elist:
-                    gmFaces.addElement(mesh2d.findElementByIdentifier(eindex))
+                    element = mesh2d.findElementByIdentifier(eindex)
+                    assert(element.isValid())
+                    result = gmFaces.addElement(element) # causes zinc to terminate if run after an optimisation
+                    assert(result == OK)
             
             # get selected data points
             # Create a data point group to contain the selected datapoints
@@ -1094,14 +1131,29 @@ class Fitter(object):
             if count == 0:
                 # for developing use data points directly from the main datapoints set
                 #dlist = [int(x) for x in "24 26 113 132 157 165 200 228 229 254 269 281 304 312 349 355 374 389 406 427 454 469 490 520 533 552".split()]
-                dlist = [int(x) for x in "19 22 24 26 34 40 55 56 57 61 72 75" # proximal hemisphere
-                    " 84 88 94 104 110 112 113 115 132 133 135 146 156 157 159"
-                    " 165 172 183 184 186 187 188 191 193 200 207 210 211 214"
-                    " 220 228 229 244 254 256 262 268 269 273 275 278 279 280"
-                    " 281 282 289 293 300 304 312 313 314 319 338 347 349 351"
-                    " 355 361 364 367 368 374 389 390 393 394 395 405 406 409"
-                    " 418 423 426 427 438 454 462 464 465 469 478 489 490 498"
-                    " 504 506 510 512 520 533 534 547 552 555".split()]
+#                 dlist = [int(x) for x in "19 22 24 26 34 40 55 56 57 61 72 75" # proximal hemisphere
+#                     " 84 88 94 104 110 112 113 115 132 133 135 146 156 157 159"
+#                     " 165 172 183 184 186 187 188 191 193 200 207 210 211 214"
+#                     " 220 228 229 244 254 256 262 268 269 273 275 278 279 280"
+#                     " 281 282 289 293 300 304 312 313 314 319 338 347 349 351"
+#                     " 355 361 364 367 368 374 389 390 393 394 395 405 406 409"
+#                     " 418 423 426 427 438 454 462 464 465 469 478 489 490 498"
+#                     " 504 506 510 512 520 533 534 547 552 555".split()]
+                dlist = [int(x) for x in "19 26 27 28 61 75 86 111 171 176 190"
+                         " 204 245 265 282 296 304 312 348 352 367 389 395 402"
+                         " 411 426 442 485 495 498 516 517 522 525 528 556 593"
+                         " 598 599 619 653 656 685 705 727 742 756 777 786 790"
+                         " 801 812 813 816 825 828 840 848 863 878 902 918 949"
+                         " 958 986 1027 1037 1060 1072 1074 1092 1113 1116 1136"
+                         " 1149 1154 1173 1196 1211 1221 1237 1244 1247 1254 1262"
+                         " 1264 1275 1303 1305 1313 1357 1371 1462 1472 1475 1492"
+                         " 1495 1504 1505 1507 1509 1523 1550 1554 1555 1561 1588"
+                         " 1600 1611 1614 1618 1632 1656 1673 1674 1698 1699 1711"
+                         " 1726 1729 1731 1749 1754 1789 1827 1894 1896 1899 1916"
+                         " 1924 1929 1948 1949 1963 2008 2022 2080 2082 2125 2127"
+                         " 2132 2152 2180 2210 2229 2263 2312 2314 2354 2365 2383"
+                         " 2392 2400 2402 2408 2412 2425 2465 2475 2497 2503 2508"
+                         " 2514".split()]
                 
                 #dlist = [int(x) for x in "26 113 228 281 312 349 355 367 406 469 520 533 552".split()]
 
@@ -1117,9 +1169,14 @@ class Fitter(object):
             
             # Get selected nodes to fix
             sNodes = fm.findNodesetByFieldDomainType(Field.DOMAIN_TYPE_NODES)
-            gnfNodes = fm.createFieldNodeGroup(sNodes)
-            gnfNodes.setName("SelectedNodes")
+            fSelectedNodes = fm.findFieldByName("SelectedNodes")
+            if not fSelectedNodes.isValid():
+                gnfNodes = fm.createFieldNodeGroup(sNodes)
+                gnfNodes.setName("SelectedNodes")
+            else:
+                gnfNodes = fSelectedNodes.castNodeGroup()    
             gnfNodes.setManaged(True)
+            
             gsNodes = gnfNodes.getNodesetGroup()
     
             nodegroup = self._selectionGroup.getFieldNodeGroup(sNodes)
@@ -1157,16 +1214,23 @@ class Fitter(object):
         storing these locations so they are not recalculated during
         optimisation.
         '''
-        print funcname()
+        if __debug__: print funcname()
+        
         with get_field_module(region) as fm:
             
             mesh2d = fm.findMeshByDimension(2)
 
             data_coordinates = fm.findFieldByName(self._data_coords_name)
-            coordinates = fm.findFieldByName('coordinates')
+            coordinates = fm.findFieldByName(self._coords_name)
+            
+            found = fm.findFieldByName('FoundLocation')
             
             self._found_location = fm.createFieldFindMeshLocation(data_coordinates, coordinates, gmFaces)
+            print funcname(), "gmFaces.isValid()", gmFaces.isValid()
+            
             self._found_location.setSearchMode(FieldFindMeshLocation.SEARCH_MODE_NEAREST)
+            #self._found_location.setName('FoundLocation')
+            
             self._stored_location = fm.createFieldStoredMeshLocation(mesh2d)
              
     #         dataNodeset = fm.findNodesetByFieldDomainType(Field.DOMAIN_TYPE_DATAPOINTS)
@@ -1200,7 +1264,9 @@ class Fitter(object):
     #                 self._stored_location.assignMeshLocation(cache, element, xi)
     #             
     #             node = node_iter.next()
-            sData = fm.findNodesetByName('datapoints')
+
+            sData = fm.findNodesetByFieldDomainType(Field.DOMAIN_TYPE_DATAPOINTS)
+
 #             print "sData", sData
     #         gnfSelectedData = self._selectionGroup.getFieldNodeGroup(sData)
     #         print "gnfSelectedData", gnfSelectedData
@@ -1269,9 +1335,15 @@ class Fitter(object):
         attr.setOrientationScaleField(error_vector)
         attr.setScaleFactors([-1, 0, 0])
         
-    def fit(self, alpha=0, beta=0):
+    def fit(self, **kwargs):
         region = self.getFitRegion()
-        region.writeFile("before.exregi")
+        region.writeFile("cubic_1.exregi")
+        
+        arclen = kwargs.get('arclen', 0)
+        edge = kwargs.get('edge', 0)
+        strain = kwargs.get('strain', 0)
+        
+        print funcname(), region.getName()
         
 #         self._defineOptimisationFields(root_region)
 #     def _defineOptimisationFields(self, region):
@@ -1282,7 +1354,7 @@ class Fitter(object):
         with get_field_module(region) as fm:
             
             # Create the undo function
-            gsModel, gmModel = self._getModelGroups(fm)
+            gsModel, gmModel = self._getModelGroups(fm, 'model')
             undoFitted = self.create_fitted_nodes_undo(gsModel)
             undoReference = self.create_reference_nodes_undo(gsModel)
 
@@ -1635,70 +1707,10 @@ class Fitter(object):
 #         graphics = scene.findGraphicsByName('datapoints')
 #         graphics.setCoordinateField(self._data_coordinates)
         
-    def load_problem(self, path):
-        # file is json
-        import json
-        
-        try:
-            with open(path, 'r') as f:
-                record = json.load(f)
-        except Exception as ex:
-            # couldn't load json
-            # FIXME: log diagnostics
-            raise ex
-        #ctxt = self.context()
-        region = self.getRootRegion().createChild("linear")
-        self._region_linear = region
-        
-        self.setFitRegion(region)
-
-        self._coords_name = 'coordinates'
-        self._ref_coords_name = 'reference_coordinates'
-        self._data_coords_name = 'data_coordinates'
-        
-        # returns a python list
-        datapoints = mesh.read_txtnode(record['data'])
-        fm = region.getFieldmodule()
-        nodeset = fm.findNodesetByFieldDomainType(Field.DOMAIN_TYPE_DATAPOINTS)
-        mesh.define_datapoints(nodeset, datapoints)
-        self._data_graphics = self._create_graphics_data(region, self._coords_name)
-        
-        nodes = mesh.read_txtnode(record['nodes'])
-        
-        elems = mesh.read_txtelem(record['elems'])
-        dimension = mesh._find_mesh_dimension(record["basis_order"], elems)
-        
-        self._elements_linear = elems
-
-#         mymesh = fm.findMeshByDimension(dimension)
-#         mesh.linear_mesh(mymesh, nodes, elems,
-#                          coordinate_field_name=self._coords_name)
-
-        # Load the mesh into a group named 'model'
-        gfModel = fm.createFieldGroup()
-        gfModel.setSubelementHandlingMode(FieldGroup.SUBELEMENT_HANDLING_MODE_FULL)
-        gfModel.setManaged(True) # prevent group from being destroyed when not in use
-        gfModel.setName('model')
-        meshModel = fm.findMeshByDimension(dimension)
-        modelElemGroup = gfModel.createFieldElementGroup(meshModel)
-        meshGroup = modelElemGroup.getMeshGroup()
-        mesh.linear_mesh(meshGroup, nodes, elems, coordinate_field_name=self._coords_name)
-
-        
-        # Load the mesh again, this time merging with the previous mesh
-        # and renaming the coordinate field to reference_coordinates.
-        # This adds another set of coordinates at each node.
-        mesh.linear_mesh(meshGroup, nodes, elems,
-                         coordinate_field_name=self._ref_coords_name, merge=True)
-            
-        self._initial_graphics = self._create_graphics_mesh(region, self._coords_name, colour='white', sub_group_field=gfModel)
-
-        self._initial_graphics_ref = self._create_graphics_mesh(region, self._ref_coords_name, colour="green", sub_group_field=gfModel)
-        
-        self._problemLoaded()
         
     def _create_graphics_data(self, region, coords_field, **kwargs):
-        mygraphics = graphics.createDatapointGraphics(region, datapoints_name='data', datapoints_size=self._pointSize)
+        mygraphics = graphics.createDatapointGraphics(region, coordinate_field_name=coords_field,
+                                                      datapoints_name='data', datapoints_size=self._pointSize)
         return mygraphics
     
     def _create_graphics_nodes(self, region, coords_field, **kwargs):
@@ -1784,16 +1796,145 @@ class Fitter(object):
 #                                            colour="green"))
         
         return mygraphics
+
+    #
+    # Load and save functions
+    #
+
+    def _readProjectFile(self, path):        
+        self._projectFile = path
         
-    def save_problem(self, path):
+        # file is in json format
+        import json
+        
+        try:
+            with open(path, 'r') as f:
+                record = json.load(f)
+        except Exception as ex:
+            # couldn't load json
+            # FIXME: log diagnostics
+            raise ex
+        
+        return record
+
+    def new_project(self, project_path):
+        region = self.getRegionByName("linear")
+        if not region.isValid():
+            region = self.getRootRegion().createChild('linear')
+        assert(region.isValid())
+        self.setFitRegion(region)
+        #FIXME: need to clear the region
+        self._region_linear = region
+        self._project = FitProject(project_path, region)
+
+    def import_data(self, data_path):
+        region = self._region_linear
+        self._project.import_data(data_path, region)
+        self._data_graphics = self._create_graphics_data(region, self._data_coords_name)
+    
+    def import_nodes(self, node_path):
+        region = self._region_linear
+        gfModel = self._project.import_nodes(node_path, region)
+
+        self._initial_graphics = self._create_graphics_mesh(region, self._coords_name, colour='white', sub_group_field=gfModel)
+        self._initial_graphics_ref = self._create_graphics_mesh(region, self._ref_coords_name, colour="green", sub_group_field=gfModel)
+
+        # FIXME: need to set the view
+        #self._problemLoaded()
+        
+    def import_elements(self, element_path):
+        region = self._region_linear
+        self._project.import_elements(element_path, region)
+
+    # FIXME: load and save should probably be in another class
+    def load_project(self, path):
+        self._projectFile = path
+
+        record = self._readProjectFile(path)
+        
+        #ctxt = self.context()
+        region = self.getRootRegion().createChild("linear")
+        self._region_linear = region
+        
+        self.setFitRegion(region)
+
+        self._coords_name = 'coordinates'
+        self._ref_coords_name = 'reference_coordinates'
+        self._data_coords_name = 'data_coordinates'
+        
+        # returns a python list
+        datapoints = mesh.read_txtnode(record['data_file'])
+
+        fm = region.getFieldmodule()
+        nodeset = fm.findNodesetByFieldDomainType(Field.DOMAIN_TYPE_DATAPOINTS)
+        mesh.define_datapoints(nodeset, datapoints)
+        self._data_graphics = self._create_graphics_data(region, self._coords_name)
+        
+        nodes = mesh.read_txtnode(record['nodes_file'])
+        
+        elems = mesh.read_txtelem(record['elements_file'])
+        dimension = mesh.find_mesh_dimension(record["basis_order"], elems)
+        
+        self._elements_linear = elems
+
+#         mymesh = fm.findMeshByDimension(dimension)
+#         mesh.linear_mesh(mymesh, nodes, elems,
+#                          coordinate_field_name=self._coords_name)
+
+        # Load the mesh into a group named 'model'
+        gfModel = fm.createFieldGroup()
+        gfModel.setSubelementHandlingMode(FieldGroup.SUBELEMENT_HANDLING_MODE_FULL)
+        gfModel.setManaged(True) # prevent group from being destroyed when not in use
+        gfModel.setName('model')
+        meshModel = fm.findMeshByDimension(dimension)
+        modelElemGroup = gfModel.createFieldElementGroup(meshModel)
+        meshGroup = modelElemGroup.getMeshGroup()
+        mesh.linear_mesh(meshGroup, nodes, elems, coordinate_field_name=self._coords_name)
+
+        
+        # Load the mesh again, this time merging with the previous mesh
+        # and renaming the coordinate field to reference_coordinates.
+        # This adds another set of coordinates at each node.
+        mesh.linear_mesh(meshGroup, nodes, elems,
+                         coordinate_field_name=self._ref_coords_name, merge=True)
+            
+        self._initial_graphics = self._create_graphics_mesh(region, self._coords_name, colour='white', sub_group_field=gfModel)
+
+        self._initial_graphics_ref = self._create_graphics_mesh(region, self._ref_coords_name, colour="green", sub_group_field=gfModel)
+        
+        self._problemLoaded()
+        
+    def save_project(self, path):
+        import os
         # There are 2 parts to this: one is the fields and data, the
         # other is the visualisation
         # How do we save the visualisation?
+        
         self.getRootRegion().writeFile(str(path))
 
         # extract nodes and datapoints as text
         # extract elements as text
-        # create object to store the names and save as json 
+        # create object to store the names and save as json
+
+        record = self._readProjectFile(path)
+
+        basename = os.path.splitext(os.path.basename(path))
+        
+        #record['fit_data_selection'] = self._datapoints_fit
+        #record['hmr_data_selection'] = self._datapoints_hmr
+        #record['point_size'] = self._pointSize
+        
+        record['node_file'] = '%s.exnode' % basename
+        
+        # Save the mesh in exregi format
+        # do we also need to save the undo stack?
+        self.region().writeFile("state.exregi")
+        
+        
+        # Write the project file
+        import json
+        with open(self._projectPath, 'w') as f:
+            json.dump(record, f)
         
 #     def _load_mesh(self):
 #         import ICP
@@ -1850,10 +1991,9 @@ class Fitter(object):
 
     def SaveState(self):
         state = None
-        self.region().writeFile("state.exregi")
+        self.getRootRegion().writeFile("state.exregi")
 
         return state
         
     def RestoreState(self, state):
         pass
-        
