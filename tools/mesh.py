@@ -16,11 +16,11 @@ def _coordinate_field(nodeset,
                       start_node_id=1):
     '''
     Create a coordinate field given a coordinate list.
-    param: region the region
+    param: nodeset the nodeset in which to to create the nodes or datapoints
     param: coordinate_set a list of the nodal coordinates
-    param: nodeset_type either 'nodes' or 'datapoints'
     param: coordinate_field_name the name or list of names of the coordinate field(s) 
     param: merge wether to merge this coordinate set into an existing node
+    param: start_node_id 
     Returns the nodeset
     '''
 
@@ -78,7 +78,7 @@ def _coordinate_field(nodeset,
                         finite_element_field.assignReal(field_cache, coords)
                     node_id += 1
                 else:
-                    raise RuntimeError("Invalid node with id%d" % node_id)
+                    raise RuntimeError("Invalid node with id %d" % node_id)
                 
         for finite_element_field in finite_element_fields:
             finite_element_field.setTypeCoordinate(True)
