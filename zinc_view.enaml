@@ -22,49 +22,83 @@ Yeah, we're missing docs on the various operators. The short version:
     "::" - The notification operator. Executes RHS whenever the LHS attribute changes. RHS can be any block of Python code except for "def", "class", "yield" and "return'."""
 
 
+
+def enable(obj):
+    obj.save_project.enabled = True
+    obj.save_project_as.enabled = True
+    obj.import_nodes.enabled = True
+    obj.import_elements.enabled = True
+    obj.import_data.enabled = True
+
 enamldef MyMenuBar(MenuBar): mb:
-    attr path : unicode = u""
+    attr path = u""
     attr controller = parent.controller
     name = 'mb'
-    Menu:
+    
+    attr actions_enabled = False
+        
+    Menu: file_menu:
         title = '&File'
 #         Action:
 #             text = 'New File\tCtrl+N'
 #             triggered :: print 'New File triggered'
         Action:
-            text = 'Open File\tCtrl+O'
+            text = 'New project ...\tCtrl+N'
+            triggered ::
+                path = FileDialogEx.get_open_file_name(mb.parent)
+                if path:
+                    controller.new_project(path)
+
+                mb.actions_enabled = True
+                
+                mb.path = path
+                
+        Action:
+            text = 'Open project ...\tCtrl+O'
             triggered ::
                 #print 'Open File triggered'
                 path = FileDialogEx.get_open_file_name(mb.parent)
                 if path:
-                    controller.open_file(path)
-#         Action:
-#             text = 'Open Folder...'
-#             triggered :: print 'Open Folder triggered'
-        Action:
-            text = 'Load nodes ...'
+                    controller.open_project(path)
+                    
+        Action: save_project:
+            text = 'Save project'
             triggered ::
-                path = FileDialogEx.get_open_file_name(mb.parent)
-                if path:
-                    controller.load_nodes(path)
-        Action:
-            text = 'Load elements ...'
-            triggered ::
-                path = FileDialogEx.get_open_file_name(mb.parent)
-                if path:
-                    controller.load_elements(path)
-        Action:
-            text = 'Load data ...'
-            triggered ::
-                path = FileDialogEx.get_open_file_name(mb.parent)
-                if path:
-                    controller.load_data(path)
-        Action:
-            text = 'Save file ...'
+                controller.save_project(self.path)
+            enabled << mb.actions_enabled
+            
+        Action: save_project_as:
+            text = 'Save project as ...'
             triggered :: 
                 path = FileDialogEx.get_save_file_name(mb.parent)
                 if path:
-                    controller.save_file(path)
+                    controller.save_project(path)
+            enabled << mb.actions_enabled
+            
+        Action: import_nodes:
+            text = 'Import nodes ...'
+            triggered ::
+                path = FileDialogEx.get_open_file_name(mb.parent)
+                if path:
+                    controller.import_nodes(path)
+            enabled << mb.actions_enabled
+
+        Action: import_elements:
+            text = 'Import elements ...'
+            triggered ::
+                path = FileDialogEx.get_open_file_name(mb.parent)
+                if path:
+                    controller.import_elements(path)
+            enabled << mb.actions_enabled
+            
+        Action: import_data:
+            text = 'Import data ...'
+            triggered ::
+                path = FileDialogEx.get_open_file_name(mb.parent)
+                if path:
+                    controller.import_data(path)
+            enabled << mb.actions_enabled
+            
         Action:
             text = 'Quit'
             # Action:Menu:MenuBar:MainWindow
@@ -288,9 +322,11 @@ enamldef FitDockPane(DockPane):
                 constraints = [
                                vbox(
                                 hbox(lblarclen, arclen),
-                                hbox(lblcurvature, curvature)),
-                               arclen.width == 50,
-                               curvature.width == arclen.width
+                                hbox(lbledgematch, edgematch),
+                                hbox(lblstrain, strain)),
+                               arclen.width == 40,
+                               edgematch.width == arclen.width,
+                               strain.width == arclen.width
                                ]
                 title = 'Smoothing'
                 Label: lblarclen:
@@ -298,16 +334,20 @@ enamldef FitDockPane(DockPane):
                 Field: arclen:
                     #mask = '0'
                     placeholder = '0'
-                Label: lblcurvature:
-                    text = 'Curvature'
-                Field: curvature:
+                Label: lbledgematch:
+                    text = 'Edge matching'
+                Field: edgematch:
                     placeholder = '0'
                     #mask = '0'
+                Label: lblstrain:
+                    text = 'Strain'
+                Field: strain:
+                    placeholder = '0'
             PushButton:
     #             Action:
     #                 checkable = True
                     text = 'Fit'
-                    clicked :: controller.fit(arclen.field_text(), curvature.field_text())
+                    clicked :: controller.fit(arclen=arclen.field_text(), edge=edgematch.field_text(), strain=strain.field_text())
                     tool_tip = "Fit the selected faces to the selected data"
 
 
